@@ -63,24 +63,28 @@ std::wstring FormatError(DWORD lastError)
     return message;
 }
 
-template <typename R, typename T, typename ...Ts>
-R(T::* AddrToMemberFuncPtr(uintptr_t addr))(Ts...)
+template <typename FuncT>
+FuncT AddrToFuncPtr(uintptr_t addr)
 {
+    static_assert(std::is_function_v<FuncT> || std::is_member_function_pointer_v<FuncT>, "This only works for function pointers!");
+
     union
     {
-        R(T::*pf)(Ts...);
-        void* p;
+        void *p;
+        FuncT type;
     };
-    p = reinterpret_cast<void*>(addr);
-    return pf;
+    p = reinterpret_cast<void *>(addr);
+    return type;
 }
 
-template<typename R, typename T, typename ...Ts>
-PVOID MemberFuncToPVoid(R(T::* f)(Ts...))
+template<typename FuncT>
+PVOID FuncPtrToPVoid(FuncT f)
 {
+    static_assert(std::is_function_v<FuncT> || std::is_member_function_pointer_v<FuncT>, "This only works for function pointers!");
+
     union
     {
-        R(T::*pf)(Ts...);
+        FuncT pf;
         void* p;
     };
     pf = f;
@@ -133,18 +137,68 @@ std::vector<DetourData> detours;
 
 } // namespace
 
+struct CMouseHandler
+{
+    enum class EButton : int
+    {
+        LEFT_CLICK,
+        RIGHT_CLICK,
+    };
+
+    char buttonData[0x4];           // 0x00
+
+    static bool (CMouseHandler:: *ButtonPressed)(EButton key);
+    static bool (CMouseHandler:: *ButtonHeld)(EButton key);
+    static bool (CMouseHandler:: *ButtonDoubleClicked)(EButton key);
+};
+
+bool (CMouseHandler:: *CMouseHandler::ButtonPressed)(EButton key) = AddrToFuncPtr<decltype(ButtonPressed)>(0x5933B9);
+bool (CMouseHandler:: *CMouseHandler::ButtonHeld)(EButton key) = AddrToFuncPtr<decltype(ButtonHeld)>(0x5933D3);
+bool (CMouseHandler:: *CMouseHandler::ButtonDoubleClicked)(EButton key) = AddrToFuncPtr<decltype(ButtonDoubleClicked)>(0x5933EE);
+
+#pragma pack(push, 1)
+struct CCharacter
+{
+    static void (CCharacter:: *GiveGold)(int amount);
+};
+
+void (CCharacter:: *CCharacter::GiveGold)(int amount) = AddrToFuncPtr<decltype(GiveGold)>(0x59DEB3);
+
+struct CGameUI
+{
+    char _pad00[0x504];                 // 0x000
+    CMouseHandler mouse;                // 0x504
+    char _pad01[0x70];                  // 0x508
+    CCharacter *character;              // 0x578
+};
+
+static_assert(offsetof(CGameUI, mouse) == 0x504);
+static_assert(offsetof(CGameUI, character) == 0x578);
+
 struct CGameClient
 {
-    static void (CGameClient::*Update)(void* id3dDevice, HWND handle, float unk);
+    char _pad00[0x618];                 // 0x000
+    struct CLevel *level;               // 0x618
+    char _pad03[0x40];                  // 0x61C
+    struct CGameUI *ui;                 // 0x65C
+
+    static void (CGameClient:: *Update)(void *id3dDevice, HWND handle, float unk);
     void UpdateDetour(void *id3dDevice, HWND handle, float unk)
     {
-        std::wcerr << "Hello world";
+        if ((this->ui->mouse.*CMouseHandler::ButtonPressed)(CMouseHandler::EButton::LEFT_CLICK))
+        {
+            (this->ui->character->*CCharacter::GiveGold)(100);
+        }
 
         (this->*Update)(id3dDevice, handle, unk);
     }
 };
+#pragma pack(pop)
 
-void (CGameClient::* CGameClient::Update)(void* id3dDevice, HWND handle, float unk) = AddrToMemberFuncPtr<void, CGameClient, void*, HWND, float>(0x482BD5);
+static_assert(offsetof(CGameClient, level) == 0x618);
+static_assert(offsetof(CGameClient, ui) == 0x65C);
+
+void (CGameClient:: *CGameClient::Update)(void *id3dDevice, HWND handle, float unk) = AddrToFuncPtr<decltype(Update)>(0x482BD5);
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -158,8 +212,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             if (!CreateDebuggingConsole())
                 return FALSE;
 
-            DetourData updateDetour(reinterpret_cast<PVOID *>(&CGameClient::Update),
-                                    MemberFuncToPVoid<void, CGameClient, void *, HWND, float>(&CGameClient::UpdateDetour));
+            DetourData updateDetour(reinterpret_cast<PVOID *>(&CGameClient::Update), FuncPtrToPVoid(&CGameClient::UpdateDetour));
             LONG result = DetourCreate(updateDetour.targetFunction, updateDetour.detourFunction);
             if (result == NO_ERROR)
                 detours.push_back(updateDetour);
