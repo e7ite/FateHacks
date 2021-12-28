@@ -170,10 +170,14 @@ struct CGameUI
     CMouseHandler mouse;                // 0x504
     char _pad01[0x70];                  // 0x508
     CCharacter *character;              // 0x578
+
+    static bool (CGameUI:: *Paused)();
 };
 
 static_assert(offsetof(CGameUI, mouse) == 0x504);
 static_assert(offsetof(CGameUI, character) == 0x578);
+
+bool (CGameUI:: *CGameUI::Paused)() = AddrToFuncPtr<decltype(Paused)>(0x43759B);
 
 struct CGameClient
 {
@@ -185,7 +189,7 @@ struct CGameClient
     static void (CGameClient:: *Update)(void *id3dDevice, HWND handle, float unk);
     void UpdateDetour(void *id3dDevice, HWND handle, float unk)
     {
-        if ((this->ui->mouse.*CMouseHandler::ButtonPressed)(CMouseHandler::EButton::LEFT_CLICK))
+        if (!(this->ui->*CGameUI::Paused)() && (this->ui->mouse.*CMouseHandler::ButtonPressed)(CMouseHandler::EButton::LEFT_CLICK))
         {
             (this->ui->character->*CCharacter::GiveGold)(100);
         }
