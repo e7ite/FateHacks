@@ -10,14 +10,14 @@ namespace
 
 struct DetourData
 {
-    PVOID* targetFunction;
+    PVOID *targetFunction;
     PVOID detourFunction;
 
-    DetourData(PVOID* targetFunction, PVOID detourFunction)
+    DetourData(PVOID *targetFunction, PVOID detourFunction)
         : targetFunction(targetFunction), detourFunction(detourFunction) {}
 };
 
-LONG DetourCreate(PVOID* targetFunction, PVOID detourFunction)
+LONG DetourCreate(PVOID *targetFunction, PVOID detourFunction)
 {
     // Initiate Detour Transcation API
     DetourTransactionBegin();
@@ -35,7 +35,7 @@ LONG DetourCreate(PVOID* targetFunction, PVOID detourFunction)
     return resultStatus;
 }
 
-LONG DetourRemove(PVOID* targetFunction, PVOID detourFunction)
+LONG DetourRemove(PVOID *targetFunction, PVOID detourFunction)
 {
     // Initiate Detour Transcation API 
     DetourTransactionBegin();
@@ -180,7 +180,7 @@ struct CGameClient
     char _pad00[0x618];                 // 0x000
     struct CLevel *level;               // 0x618
     char _pad03[0x40];                  // 0x61C
-    struct CGameUI *ui;                 // 0x65C
+    CGameUI *ui;                        // 0x65C
 
     static void (CGameClient:: *Update)(void *id3dDevice, HWND handle, float unk);
     void UpdateDetour(void *id3dDevice, HWND handle, float unk)
