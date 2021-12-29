@@ -64,6 +64,8 @@ std::wstring FormatError(DWORD lastError)
     return message;
 }
 
+// Needed because we need to convert game subroutines into member function pointers. Definitely UB, but works for 
+// this code, which isn't going to be ported to another platform any time soon.
 template <typename FuncT>
 FuncT AddrToFuncPtr(uintptr_t addr)
 {
@@ -78,6 +80,8 @@ FuncT AddrToFuncPtr(uintptr_t addr)
     return type;
 }
 
+// Needed because member function pointers cannot be casted into any other pointer type. Definitely UB, but 
+// works for this code, which isn't going to be ported to another platform any time soon
 template<typename FuncT>
 PVOID FuncPtrToPVoid(FuncT f)
 {
@@ -91,7 +95,7 @@ PVOID FuncPtrToPVoid(FuncT f)
     pf = f;
     return p;
 }
-
+// Spawns a terminal when the DLL is injected, solely for debugging purposes
 BOOL CreateDebuggingConsole()
 {
     if (!AllocConsole())
@@ -121,6 +125,9 @@ BOOL CreateDebuggingConsole()
     return TRUE;
 }
 
+// Destroys the terminal the DLL is injected with, solely for debugging purposes.
+// Perhaps create a type for this and create with constructors to ensure this isn't
+// called before a terminal is created?
 BOOL DestroyDebuggingConsole()
 {
     if (!FreeConsole())
@@ -134,7 +141,7 @@ BOOL DestroyDebuggingConsole()
     return TRUE;
 }
 
-std::vector<DetourData> detours;
+std::vector<DetourData> gDetours;
 
 } // namespace
 
@@ -196,6 +203,8 @@ static_assert(offsetof(CGameUI, character) == 0x578);
 
 bool (CGameUI:: *CGameUI::Paused)() = AddrToFuncPtr<decltype(Paused)>(0x43759B);
 
+void CheatMain(CGameClient *client, IDirect3DDevice8 *id3dDevice);
+
 struct CGameClient
 {
     char _pad00[0x544];                 // 0x000
@@ -205,13 +214,11 @@ struct CGameClient
     char _pad03[0x40];                  // 0x61C
     CGameUI *ui;                        // 0x65C
 
+    // This is the main detour for this cheat, which redirects code execution to the cheat entry point located below.
     static void (CGameClient:: *Update)(IDirect3DDevice8 *id3dDevice, HWND handle, float unk);
     void UpdateDetour(IDirect3DDevice8 *id3dDevice, HWND handle, float unk)
     {
-        if (!(this->ui->*CGameUI::Paused)() && (this->ui->mouse.*CMouseHandler::ButtonPressed)(CMouseHandler::EButton::LEFT_CLICK))
-        {
-            (this->ui->character->*CCharacter::GiveGold)(100);
-        }
+        CheatMain(this, id3dDevice);
 
         (this->*Update)(id3dDevice, handle, unk);
     }
@@ -223,6 +230,16 @@ static_assert(offsetof(CGameClient, level) == 0x618);
 static_assert(offsetof(CGameClient, ui) == 0x65C);
 
 void (CGameClient:: *CGameClient::Update)(IDirect3DDevice8 *id3dDevice, HWND handle, float unk) = AddrToFuncPtr<decltype(Update)>(0x482BD5);
+
+// All desired custom desired should be placed here, as it is passed all the essential game structures from the
+// CGameClient::Update detour, which runs on every frame.
+void CheatMain(CGameClient *client, IDirect3DDevice8 *id3dDevice)
+{
+    if (!(client->ui->*CGameUI::Paused)() && (client->ui->mouse.*CMouseHandler::ButtonPressed)(CMouseHandler::EButton::LEFT_CLICK))
+    {
+        (client->ui->character->*CCharacter::GiveGold)(100);
+    }
+}
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -239,7 +256,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             DetourData updateDetour(reinterpret_cast<PVOID *>(&CGameClient::Update), FuncPtrToPVoid(&CGameClient::UpdateDetour));
             LONG result = DetourCreate(updateDetour.targetFunction, updateDetour.detourFunction);
             if (result == NO_ERROR)
-                detours.push_back(updateDetour);
+                gDetours.push_back(updateDetour);
         }
         break;
         case DLL_PROCESS_DETACH:
@@ -247,7 +264,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             if (!DestroyDebuggingConsole())
                 return FALSE;
 
-            for (DetourData i : detours)
+            for (DetourData i : gDetours)
                 DetourRemove(i.targetFunction, i.detourFunction);
         }
         break;
