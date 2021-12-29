@@ -204,8 +204,6 @@ static_assert(offsetof(CGameUI, character) == 0x578);
 
 bool (CGameUI:: *CGameUI::Paused)() = AddrToFuncPtr<decltype(Paused)>(0x43759B);
 
-void CheatMain(CGameClient *client, IDirect3DDevice8 *id3dDevice);
-
 struct CGameClient
 {
     char _pad00[0x544];                 // 0x000
@@ -219,6 +217,7 @@ struct CGameClient
     static void (CGameClient:: *Update)(IDirect3DDevice8 *id3dDevice, HWND handle, float unk);
     void UpdateDetour(IDirect3DDevice8 *id3dDevice, HWND handle, float unk)
     {
+        void CheatMain(CGameClient *client, IDirect3DDevice8 *id3dDevice);
         CheatMain(this, id3dDevice);
 
         (this->*Update)(id3dDevice, handle, unk);
