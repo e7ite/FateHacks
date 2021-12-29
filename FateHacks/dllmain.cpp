@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include <detours/detours.h>
+#include <WinUser.h>
 
 namespace
 {
@@ -137,6 +138,23 @@ std::vector<DetourData> detours;
 
 } // namespace
 
+#pragma pack(push, 1)
+struct CKeyHandler
+{
+    char _pad00[0x4];                   // 0x00
+
+    static bool (CKeyHandler:: *KeyPressed)(unsigned int key);
+    static bool (CKeyHandler:: *KeyHeld)(unsigned int key);
+};
+
+bool (CKeyHandler:: *CKeyHandler::KeyPressed)(unsigned int key) = AddrToFuncPtr<decltype(KeyPressed)>(0x592BD1);
+bool (CKeyHandler:: *CKeyHandler::KeyHeld)(unsigned int key) = AddrToFuncPtr<decltype(KeyPressed)>(0x592BEC);
+
+struct IDirect3DDevice8
+{
+    CKeyHandler keyboard;               // 0x00
+};
+
 struct CMouseHandler
 {
     enum class EButton : int
@@ -145,7 +163,7 @@ struct CMouseHandler
         RIGHT_CLICK,
     };
 
-    char buttonData[0x4];           // 0x00
+    char buttonData[0x4];               // 0x00
 
     static bool (CMouseHandler:: *ButtonPressed)(EButton key);
     static bool (CMouseHandler:: *ButtonHeld)(EButton key);
@@ -156,7 +174,6 @@ bool (CMouseHandler:: *CMouseHandler::ButtonPressed)(EButton key) = AddrToFuncPt
 bool (CMouseHandler:: *CMouseHandler::ButtonHeld)(EButton key) = AddrToFuncPtr<decltype(ButtonHeld)>(0x5933D3);
 bool (CMouseHandler:: *CMouseHandler::ButtonDoubleClicked)(EButton key) = AddrToFuncPtr<decltype(ButtonDoubleClicked)>(0x5933EE);
 
-#pragma pack(push, 1)
 struct CCharacter
 {
     static void (CCharacter:: *GiveGold)(int amount);
@@ -181,13 +198,15 @@ bool (CGameUI:: *CGameUI::Paused)() = AddrToFuncPtr<decltype(Paused)>(0x43759B);
 
 struct CGameClient
 {
-    char _pad00[0x618];                 // 0x000
+    char _pad00[0x544];                 // 0x000
+    IDirect3DDevice8 *id3dDevice;       // 0x544
+    char _pad01[0xD0];                  // 0x548
     struct CLevel *level;               // 0x618
     char _pad03[0x40];                  // 0x61C
     CGameUI *ui;                        // 0x65C
 
-    static void (CGameClient:: *Update)(void *id3dDevice, HWND handle, float unk);
-    void UpdateDetour(void *id3dDevice, HWND handle, float unk)
+    static void (CGameClient:: *Update)(IDirect3DDevice8 *id3dDevice, HWND handle, float unk);
+    void UpdateDetour(IDirect3DDevice8 *id3dDevice, HWND handle, float unk)
     {
         if (!(this->ui->*CGameUI::Paused)() && (this->ui->mouse.*CMouseHandler::ButtonPressed)(CMouseHandler::EButton::LEFT_CLICK))
         {
@@ -199,10 +218,11 @@ struct CGameClient
 };
 #pragma pack(pop)
 
+static_assert(offsetof(CGameClient, id3dDevice) == 0x544);
 static_assert(offsetof(CGameClient, level) == 0x618);
 static_assert(offsetof(CGameClient, ui) == 0x65C);
 
-void (CGameClient:: *CGameClient::Update)(void *id3dDevice, HWND handle, float unk) = AddrToFuncPtr<decltype(Update)>(0x482BD5);
+void (CGameClient:: *CGameClient::Update)(IDirect3DDevice8 *id3dDevice, HWND handle, float unk) = AddrToFuncPtr<decltype(Update)>(0x482BD5);
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
