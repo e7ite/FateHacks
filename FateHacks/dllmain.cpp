@@ -95,6 +95,7 @@ PVOID FuncPtrToPVoid(FuncT f)
     pf = f;
     return p;
 }
+
 // Spawns a terminal when the DLL is injected, solely for debugging purposes
 BOOL CreateDebuggingConsole()
 {
@@ -125,9 +126,9 @@ BOOL CreateDebuggingConsole()
     return TRUE;
 }
 
-// Destroys the terminal the DLL is injected with, solely for debugging purposes.
-// Perhaps create a type for this and create with constructors to ensure this isn't
-// called before a terminal is created?
+// Destroys the terminal created if CreateDebuggingConsole(), was invoked, solely for 
+// debugging purposes. Perhaps create a type for this and create with constructors to 
+// ensure this isn't called before a terminal is created?
 BOOL DestroyDebuggingConsole()
 {
     if (!FreeConsole())
