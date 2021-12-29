@@ -146,6 +146,11 @@ std::vector<DetourData> gDetours;
 
 } // namespace
 
+// Needed because it is not safe for the DLL to allocate heap memory, so we should use the 
+// game's allocation methods.
+void *(__cdecl *GameOperatorNew)(size_t size) = reinterpret_cast<void *(*)(size_t)>(0x6364DCUL);
+void (__cdecl *GameOperatorDelete)(void *) = reinterpret_cast<void (*)(void *)>(0x637E4BUL);
+
 #pragma pack(push, 1)
 struct CKeyHandler
 {
@@ -189,17 +194,52 @@ struct CCharacter
 
 void (CCharacter:: *CCharacter::GiveGold)(int amount) = AddrToFuncPtr<decltype(GiveGold)>(0x59DEB3);
 
+struct CConfirmMenu
+{
+    char _pad00[0x594];                 // 0x00
+
+    // Using this factory method because we are invoking a constructor of the game code, and we want to make sure we
+    // correctly allocate/free the memory required for this structure using the game's operator new and delete
+    static std::unique_ptr<CConfirmMenu, void(*)(CConfirmMenu *)> Create(IDirect3DDevice8 *id3dDevice, struct CRefManager *refManager,
+                                                struct CSettings *settings, struct CGameStateManager *gameStateManager)
+    {
+        auto menu = std::unique_ptr<CConfirmMenu, void(*)(CConfirmMenu *)>(
+            reinterpret_cast<CConfirmMenu *>(GameOperatorNew(sizeof(CConfirmMenu))), [](CConfirmMenu *menu) { (menu->*Destructor)(); });
+        (menu.get()->*Constructor)(id3dDevice, refManager, settings, gameStateManager);
+        return menu;
+    }
+
+private:
+    CConfirmMenu() = default;
+
+    static CConfirmMenu *(CConfirmMenu:: *Constructor)(IDirect3DDevice8 *id3dDevice, struct CRefManager *refManager, 
+                                                       struct CSettings *settings, struct CGameStateManager *gameStateManager);
+    static void (CConfirmMenu:: *Destructor)();
+};
+
+CConfirmMenu *(CConfirmMenu:: *CConfirmMenu::Constructor)(IDirect3DDevice8 *id3dDevice, struct CRefManager *refManager, 
+                                                          struct CSettings *settings,
+                                                          struct CGameStateManager *gameStateManager) = AddrToFuncPtr<decltype(Constructor)>(0x477AEC);
+void (CConfirmMenu:: *CConfirmMenu::Destructor)() = AddrToFuncPtr<decltype(Destructor)>(0x477D68);
+
 struct CGameUI
 {
-    char _pad00[0x504];                 // 0x000
-    CMouseHandler mouse;                // 0x504
-    char _pad01[0x70];                  // 0x508
-    CCharacter *character;              // 0x578
+    char _pad00[0x504];                         // 0x000
+    CMouseHandler mouse;                        // 0x504
+    char _pad01[0x1C];                          // 0x508
+    struct CSettings *settings;                 // 0x524
+    struct CRefManager *refManager;             // 0x528
+    struct CGameStateManager *gameStateManager; // 0x52C
+    char _pad02[0x48];                          // 0x530
+    CCharacter *character;                      // 0x578
 
     static bool (CGameUI:: *Paused)();
 };
 
 static_assert(offsetof(CGameUI, mouse) == 0x504);
+static_assert(offsetof(CGameUI, settings) == 0x524);
+static_assert(offsetof(CGameUI, refManager) == 0x528);
+static_assert(offsetof(CGameUI, gameStateManager) == 0x52C);
 static_assert(offsetof(CGameUI, character) == 0x578);
 
 bool (CGameUI:: *CGameUI::Paused)() = AddrToFuncPtr<decltype(Paused)>(0x43759B);
@@ -235,6 +275,9 @@ void (CGameClient:: *CGameClient::Update)(IDirect3DDevice8 *id3dDevice, HWND han
 // CGameClient::Update detour, which runs on every frame.
 void CheatMain(CGameClient *client, IDirect3DDevice8 *id3dDevice)
 {
+    static auto confirmMenu = CConfirmMenu::Create(id3dDevice, client->ui->refManager,
+                                                   client->ui->settings, client->ui->gameStateManager);
+
     if (!(client->ui->*CGameUI::Paused)() && (client->ui->mouse.*CMouseHandler::ButtonPressed)(CMouseHandler::EButton::LEFT_CLICK))
     {
         (client->ui->character->*CCharacter::GiveGold)(100);
