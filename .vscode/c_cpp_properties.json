@@ -1,0 +1,27 @@
+{
+  // IntelliSense config for the C/C++ extension (ms-vscode.cpptools).
+  // Points at the vcpkg x86-windows include dir so <detours.h> resolves.
+  "version": 4,
+  "configurations": [
+    {
+      "name": "Win32",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "C:/dev/vcpkg/installed/x86-windows/include"
+      ],
+      "defines": [
+        "WIN32",
+        "_DEBUG",
+        "FATEHACKS_EXPORTS",
+        "_WINDOWS",
+        "_USRDLL",
+        "_UNICODE",
+        "UNICODE"
+      ],
+      "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.42.34433/bin/Hostx64/x86/cl.exe",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "windows-msvc-x86"
+    }
+  ]
+}

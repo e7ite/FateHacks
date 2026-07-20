@@ -1,0 +1,25 @@
+{
+  // VS Code build task for FateHacks. Logic lives in .vscode/build.ps1.
+  //
+  //   Ctrl+Shift+B  ->  "Build": unload old DLL -> compile -> inject new DLL.
+  //
+  // Runs at normal integrity (no UAC). If FATE isn't running, unload/inject are
+  // harmless no-ops and the build still succeeds. If the injector says
+  // "Access is denied", launch VS Code as administrator.
+  // MSBuild is located at runtime via vswhere, so no hard-coded VS path.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile", "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}\\.vscode\\build.ps1"
+      ],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile",
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    }
+  ]
+}

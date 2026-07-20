@@ -98,12 +98,10 @@
       <EnableUAC>false</EnableUAC>
     </Link>
     <PreBuildEvent>
-      <Command>cd $(TargetDir)
-call "unload.cmd"</Command>
+      <Command>call "$(TargetDir)unload.cmd"</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>cd $(TargetDir)
-call "load.cmd"</Command>
+      <Command>call "$(TargetDir)load.cmd"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
