@@ -9,8 +9,14 @@
 #include <detours/detours.h>
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
+
+// All desired custom desired should be placed here, as it is passed all the
+// essential game structures from the CGameClient::Update detour, which runs on
+// every frame.
+void CheatMain(struct CGameClient *client, struct IDirect3DDevice8 *id3dDevice);
 
 namespace {
 
@@ -233,34 +239,159 @@ CConfirmMenu *(CConfirmMenu::*CConfirmMenu::Constructor)(
 void (CConfirmMenu::*CConfirmMenu::Destructor)() =
     AddrToFuncPtr<decltype(Destructor)>(0x477D68);
 
+void (CConfirmMenu::*CConfirmMenu::Render)(IDirect3DDevice8 *id3dDevice) =
+    AddrToFuncPtr<decltype(Render)>(0x478BB2);
+
+// Needed because the standard library implementation used by the game most
+// likely is not the same as the one included by MVSC here.
+template <typename T>
+struct STLVector {
+  static int (STLVector<T>::*size)();
+
+  T *operator[](int idx) { return (this->*opIndex)(idx); }
+
+  static T *(STLVector<T>::*opIndex)(int idx);
+};
+
+template <typename T>
+int (STLVector<T>::*STLVector<T>::size)() =
+    AddrToFuncPtr<decltype(size)>(0x417560);
+template <typename T>
+T *(STLVector<T>::*STLVector<T>::opIndex)(int idx) =
+    AddrToFuncPtr<decltype(opIndex)>(0x41758E);
+
+struct STLString {
+  STLString() { (this->*STLString::constructor)(""); }
+  STLString(const char *str) { (this->*STLString::constructor)(str); }
+  ~STLString() { (this->*STLString::destructor)(0, 0); }
+
+  static char *(STLString::*get)();
+  static void (STLString::*constructor)(const char *str);
+  static void (STLString::*destructor)(int unk, int unk2);
+
+ private:
+  // Size reference from 0x40FB6E mentioning the size of the string in stack is
+  // 0x1C, and 0x42D8C3 mentioning the next member set is 0x1C offset after
+  // string.
+  char __pad00[0x1C];
+};
+
+char *(STLString::*STLString::get)() = AddrToFuncPtr<decltype(get)>(0x403808);
+void (STLString::*STLString::constructor)(const char *str) =
+    AddrToFuncPtr<decltype(constructor)>(0x405BAC);
+void (STLString::*STLString::destructor)(int unk, int unk2) =
+    AddrToFuncPtr<decltype(destructor)>(0x4035E6);
+
+struct CText {
+  char _pad00[0x78];  // 0x00
+
+  static void (CText::*Render)(IDirect3DDevice8 *id3dDevice);
+  // Rebuilds the mesh from a new string. Use this to edit the text after Create.
+  static void (CText::*Update)(IDirect3DDevice8 *id3dDevice, STLString *str,
+                               float x, float y, float alpha, char unk, int unk2,
+                               int unk3, int unk4);
+
+  static std::unique_ptr<CText, void (*)(CText *)> Create(
+      IDirect3DDevice8 *id3dDevice, struct CMaterial *cMaterial,
+      struct CFontMetric *font, STLString *str, float x, float y, float alpha,
+      char unk, int unk2, int unk3, int unk4) {
+    auto text = std::unique_ptr<CText, void (*)(CText *)>(
+        reinterpret_cast<CText *>(GameOperatorNew(sizeof(CText))),
+        [](CText *text) { (text->*DeleteCText)(/*flags=*/1); });
+    (text.get()->*Constructor)(id3dDevice, cMaterial, font, str, x, y, alpha,
+                               unk, unk2, unk3, unk4);
+    return text;
+  }
+
+ private:
+  CText() = default;
+
+  static void (CText::*Constructor)(IDirect3DDevice8 *id3dDevice,
+                                    struct CMaterial *cMaterial,
+                                    struct CFontMetric *font, STLString *str,
+                                    float x, float y, float alpha, char unk,
+                                    int unk2, int unk3, int unk4);
+  static void (CText::*DeleteCText)(int flags);
+};
+
+void (CText::*CText::Render)(IDirect3DDevice8 *id3dDevice) =
+    AddrToFuncPtr<decltype(Render)>(0x449CF3);
+void (CText::*CText::Update)(IDirect3DDevice8 *id3dDevice, STLString *str,
+                             float x, float y, float alpha, char unk, int unk2,
+                             int unk3, int unk4) =
+    AddrToFuncPtr<decltype(Update)>(0x449060);
+void (CText::*CText::Constructor)(
+    IDirect3DDevice8 *id3dDevice, struct CMaterial *cMaterial,
+    struct CFontMetric *font, STLString *str, float x, float y, float alpha,
+    char unk, int unk2, int unk3,
+    int unk4) = AddrToFuncPtr<decltype(Constructor)>(0x448464);
+void (CText::*CText::DeleteCText)(int flags) =
+    AddrToFuncPtr<decltype(DeleteCText)>(0x438E5C);
+
+struct MaterialRef {
+  char __pad00[0x24];
+  STLString part1;
+  STLString part2;
+  STLString part3;
+  STLString part4;
+  STLString part5;
+};
+
+static_assert(offsetof(MaterialRef, part1) == 0x24);
+static_assert(offsetof(MaterialRef, part2) == 0x40);
+static_assert(offsetof(MaterialRef, part3) == 0x5C);
+static_assert(offsetof(MaterialRef, part4) == 0x78);
+static_assert(offsetof(MaterialRef, part5) == 0x94);
+
+struct CRefManager {
+  char __pad00[0x50];
+  STLVector<MaterialRef *> materialRefs;
+};
+
+static_assert(offsetof(CRefManager, materialRefs) == 0x50);
+
 struct CGameUI {
-  char _pad00[0x504];                          // 0x000
-  CMouseHandler mouse;                         // 0x504
-  char _pad01[0x1C];                           // 0x508
-  struct CSettings *settings;                  // 0x524
-  struct CRefManager *refManager;              // 0x528
-  struct CGameStateManager *gameStateManager;  // 0x52C
-  char _pad02[0x48];                           // 0x530
-  CCharacter *character;                       // 0x578
+  char _pad00[0x504];                                                 // 0x000
+  CMouseHandler mouse;                                                // 0x504
+  char _pad01[0x1C];                                                  // 0x508
+  struct CSettings *settings;                                         // 0x524
+  CRefManager *refManager;                                            // 0x528
+  struct CGameStateManager *gameStateManager;                         // 0x52C
+  char _pad02a[0x564 - (sizeof(struct CGameStateManager *) + 0x52C)]; // 0x530
+  struct CMaterial *fontMaterial;                                     // 0x564
+  char _pad02b[0x570 - (sizeof(struct CMaterial *) + 0x564)];         // 0x568
+  struct CFontMetric *font;                                           // 0x570
+  char _pad03[0x578 - (sizeof(struct CFontMetric *) + 0x570)];        // 0x574
+  CCharacter *character;                                              // 0x578
 
   static bool (CGameUI::*Paused)();
+
+  static bool (CGameUI::*Render)(IDirect3DDevice8 *id3dDevice,
+                                 struct CGameClient *client, void *unk,
+                                 void *unk2);
+  bool RenderDetour(IDirect3DDevice8 *id3dDevice, struct CGameClient *client,
+                    void *unk, void *unk2);
 };
 
 static_assert(offsetof(CGameUI, mouse) == 0x504);
 static_assert(offsetof(CGameUI, settings) == 0x524);
 static_assert(offsetof(CGameUI, refManager) == 0x528);
 static_assert(offsetof(CGameUI, gameStateManager) == 0x52C);
+static_assert(offsetof(CGameUI, fontMaterial) == 0x564);
+static_assert(offsetof(CGameUI, font) == 0x570);
 static_assert(offsetof(CGameUI, character) == 0x578);
 
 bool (CGameUI::*CGameUI::Paused)() = AddrToFuncPtr<decltype(Paused)>(0x43759B);
 
 struct CGameClient {
-  char _pad00[0x544];            // 0x000
-  IDirect3DDevice8 *id3dDevice;  // 0x544
-  char _pad01[0xD0];             // 0x548
-  struct CLevel *level;          // 0x618
-  char _pad03[0x40];             // 0x61C
-  CGameUI *ui;                   // 0x65C
+  char _pad00[0x08];                                   // 0x000
+  CRefManager *refManager;                             // 0x008
+  char _pad01[0x544 - (sizeof(CRefManager *) + 0x8)];  // 0x2A0
+  IDirect3DDevice8 *id3dDevice;                        // 0x544
+  char _pad02[0xD0];                                   // 0x548
+  struct CLevel *level;                                // 0x618
+  char _pad03[0x40];                                   // 0x61C
+  CGameUI *ui;                                         // 0x65C
 
   // This is the main detour for this cheat, which redirects code execution to
   // the cheat entry point located below.
@@ -276,6 +407,7 @@ struct CGameClient {
 #pragma pack(pop)
 
 static_assert(offsetof(CGameClient, id3dDevice) == 0x544);
+static_assert(offsetof(CGameClient, refManager) == 0x8);
 static_assert(offsetof(CGameClient, level) == 0x618);
 static_assert(offsetof(CGameClient, ui) == 0x65C);
 
@@ -283,18 +415,38 @@ void (CGameClient::*CGameClient::Update)(IDirect3DDevice8 *id3dDevice,
                                          HWND handle, float unk) =
     AddrToFuncPtr<decltype(Update)>(0x482BD5);
 
-// All desired custom desired should be placed here, as it is passed all the
-// essential game structures from the CGameClient::Update detour, which runs on
-// every frame.
-void CheatMain(CGameClient *client, IDirect3DDevice8 *id3dDevice) {
-  static auto confirmMenu =
-      CConfirmMenu::Create(id3dDevice, client->ui->refManager,
-                           client->ui->settings, client->ui->gameStateManager);
+std::unique_ptr<CText, void (*)(CText *)> gOverlayText(nullptr, nullptr);
 
-  if (!(client->ui->*CGameUI::Paused)() &&
-      (client->ui->mouse.*
-       CMouseHandler::ButtonPressed)(CMouseHandler::EButton::LEFT_CLICK)) {
-    (client->ui->character->*CCharacter::GiveGold)(100);
+bool (CGameUI::*CGameUI::Render)(IDirect3DDevice8 *id3dDevice,
+                                 CGameClient *client, void *unk, void *unk2) =
+    AddrToFuncPtr<decltype(Render)>(0x4A2E7D);
+bool CGameUI::RenderDetour(IDirect3DDevice8 *id3dDevice, CGameClient *client,
+                           void *unk, void *unk2) {
+  // Let the game draw its UI first, then draw ours on top.
+  bool status = (this->*Render)(id3dDevice, client, unk, unk2);
+
+  if (gOverlayText == nullptr && fontMaterial != nullptr && font != nullptr) {
+    STLString str("Hellfateo world!");
+    gOverlayText = CText::Create(id3dDevice, fontMaterial, font, &str, 100, 10,
+                                 0.8f, 0, 2, 1024, 768);
+  }
+  
+  if (gOverlayText) {
+    (gOverlayText.get()->*CText::Render)(id3dDevice);
+  }
+
+  return status;
+}
+
+void CheatMain(CGameClient *client, IDirect3DDevice8 *id3dDevice) {
+  CGameUI *ui = client->ui;
+
+  // Give gold on left-click. This runs in the Update phase (via UpdateDetour),
+  // where the "just pressed" mouse state is still fresh. (The overlay text is
+  // drawn in CGameUI::RenderDetour, which runs in the render phase.)
+  if (!(ui->*CGameUI::Paused)() && (ui->mouse.*CMouseHandler::ButtonPressed)(
+                                       CMouseHandler::EButton::LEFT_CLICK)) {
+    (ui->character->*CCharacter::GiveGold)(100);
   }
 }
 
@@ -313,6 +465,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
         return FALSE;
       }
       gDetours.push_back(updateDetour);
+
+      DetourData renderUIDetour(reinterpret_cast<PVOID *>(&CGameUI::Render),
+                                FuncPtrToPVoid(&CGameUI::RenderDetour));
+      if (DetourCreate(renderUIDetour.targetFunction,
+                       renderUIDetour.detourFunction) != NO_ERROR) {
+        return FALSE;
+      }
+      gDetours.push_back(renderUIDetour);
     } break;
     case DLL_PROCESS_DETACH: {
       if (!DestroyDebuggingConsole()) {
