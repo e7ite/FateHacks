@@ -39,6 +39,11 @@
          project's objects in their own folder regardless of what either
          project later compiles. -->
     <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <!-- Link Google Test and Google Mock statically (static libs, dynamic CRT)
+         so the test exe has no runtime DLL dependencies and runs anywhere (the
+         pre-commit hook, VS, and CI) without deploying DLLs. vcpkg auto-links
+         the static libs from this triplet's install tree. -->
+    <VcpkgTriplet>x86-windows-static-md</VcpkgTriplet>
   </PropertyGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -53,17 +58,11 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <PreprocessorDefinitions>GTEST_LINKED_AS_SHARED_LIBRARY=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>gtestd.lib;gmockd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>"$(TargetPath)"</Command>
-      <Message>Running tests: $(TargetFileName)</Message>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -73,19 +72,13 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <PreprocessorDefinitions>GTEST_LINKED_AS_SHARED_LIBRARY=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>gtest.lib;gmock.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>"$(TargetPath)"</Command>
-      <Message>Running tests: $(TargetFileName)</Message>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <!-- menu.cpp owns and renders a CText per item (OverlayText::Render), so
@@ -104,4 +97,9 @@
     <ClInclude Include="menu.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <!-- Run the test binary after the build (so after vcpkg copies the runtime
+       DLLs); a non-zero exit fails the build, gating commits and CI. -->
+  <Target Name="RunTests" AfterTargets="Build">
+    <Exec Command="&quot;$(TargetPath)&quot;" />
+  </Target>
 </Project>
