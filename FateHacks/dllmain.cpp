@@ -14,11 +14,14 @@
 #include <vector>
 
 #include "abi.hpp"
+#include "input.hpp"
 #include "stl.hpp"
 
-// stl.hpp's contents live in `namespace fate`; the structs below still defined
-// here (not yet split out) name them unqualified, so bring them in by name.
-// This goes away once those structs move to their own modules too.
+// stl.hpp/input.hpp's contents live in `namespace fate`; the structs below
+// still defined here (not yet split out) name them unqualified, so bring them
+// in by name. This goes away once those structs move to their own modules too.
+using ::fate::CKeyHandler;
+using ::fate::CMouseHandler;
 using ::fate::GameOperatorNew;
 using ::fate::STLString;
 using ::fate::STLVector;
@@ -129,41 +132,9 @@ std::vector<DetourData> gDetours;
 }  // namespace
 
 #pragma pack(push, 1)
-struct CKeyHandler {
-  char _pad00[0x4];  // 0x00
-
-  static bool (CKeyHandler::*KeyPressed)(unsigned int key);
-  static bool (CKeyHandler::*KeyHeld)(unsigned int key);
-};
-
-bool (CKeyHandler::* CKeyHandler::KeyPressed)(unsigned int key) =
-    AddrToFuncPtr<decltype(KeyPressed)>(0x592BD1);
-bool (CKeyHandler::* CKeyHandler::KeyHeld)(unsigned int key) =
-    AddrToFuncPtr<decltype(KeyPressed)>(0x592BEC);
-
 struct IDirect3DDevice8 {
   CKeyHandler keyboard;  // 0x00
 };
-
-struct CMouseHandler {
-  enum class EButton : int {
-    LEFT_CLICK,
-    RIGHT_CLICK,
-  };
-
-  char buttonData[0x4];  // 0x00
-
-  static bool (CMouseHandler::*ButtonPressed)(EButton key);
-  static bool (CMouseHandler::*ButtonHeld)(EButton key);
-  static bool (CMouseHandler::*ButtonDoubleClicked)(EButton key);
-};
-
-bool (CMouseHandler::* CMouseHandler::ButtonPressed)(EButton key) =
-    AddrToFuncPtr<decltype(ButtonPressed)>(0x5933B9);
-bool (CMouseHandler::* CMouseHandler::ButtonHeld)(EButton key) =
-    AddrToFuncPtr<decltype(ButtonHeld)>(0x5933D3);
-bool (CMouseHandler::* CMouseHandler::ButtonDoubleClicked)(EButton key) =
-    AddrToFuncPtr<decltype(ButtonDoubleClicked)>(0x5933EE);
 
 struct CCharacter {
   static void (CCharacter::*GiveGold)(int amount);
