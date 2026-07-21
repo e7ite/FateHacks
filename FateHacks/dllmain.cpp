@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include "abi.hpp"
+
 // All desired custom desired should be placed here, as it is passed all the
 // essential game structures from the CGameClient::Update detour, which runs on
 // every frame.
@@ -70,40 +72,6 @@ std::wstring FormatError(DWORD lastError) {
                 NULL, lastError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                 (LPWSTR)&message, 0, NULL);
   return message;
-}
-
-// Needed because we need to convert game subroutines into member function
-// pointers. Definitely UB, but works for this code, which isn't going to be
-// ported to another platform any time soon.
-template <typename FuncT>
-FuncT AddrToFuncPtr(uintptr_t addr) {
-  static_assert(
-      std::is_function_v<FuncT> || std::is_member_function_pointer_v<FuncT>,
-      "This only works for function pointers!");
-
-  union {
-    void* p;
-    FuncT type;
-  };
-  p = reinterpret_cast<void*>(addr);
-  return type;
-}
-
-// Needed because member function pointers cannot be casted into any other
-// pointer type. Definitely UB, but works for this code, which isn't going to be
-// ported to another platform any time soon.
-template <typename FuncT>
-PVOID FuncPtrToPVoid(FuncT f) {
-  static_assert(
-      std::is_function_v<FuncT> || std::is_member_function_pointer_v<FuncT>,
-      "This only works for function pointers!");
-
-  union {
-    FuncT pf;
-    void* p;
-  };
-  pf = f;
-  return p;
 }
 
 // Spawns a terminal when the DLL is injected, solely for debugging purposes
