@@ -15,16 +15,20 @@
 
 #include "abi.hpp"
 #include "input.hpp"
+#include "render.hpp"
 #include "stl.hpp"
 
-// stl.hpp/input.hpp's contents live in `namespace fate`; the structs below
-// still defined here (not yet split out) name them unqualified, so bring them
-// in by name. This goes away once those structs move to their own modules too.
-using ::fate::CKeyHandler;
+// stl.hpp/input.hpp/render.hpp's contents live in `namespace fate`; the structs
+// below still defined here (not yet split out) name them unqualified, so bring
+// them in by name. This goes away once those structs move to their own modules
+// too.
+using ::fate::CFontMetric;
+using ::fate::CMaterial;
 using ::fate::CMouseHandler;
-using ::fate::GameOperatorNew;
+using ::fate::CRefManager;
+using ::fate::CText;
+using ::fate::IDirect3DDevice8;
 using ::fate::STLString;
-using ::fate::STLVector;
 
 // All desired custom desired should be placed here, as it is passed all the
 // essential game structures from the CGameClient::Update detour, which runs on
@@ -132,124 +136,12 @@ std::vector<DetourData> gDetours;
 }  // namespace
 
 #pragma pack(push, 1)
-struct IDirect3DDevice8 {
-  CKeyHandler keyboard;  // 0x00
-};
-
 struct CCharacter {
   static void (CCharacter::*GiveGold)(int amount);
 };
 
 void (CCharacter::* CCharacter::GiveGold)(int amount) =
     AddrToFuncPtr<decltype(GiveGold)>(0x59DEB3);
-
-struct CConfirmMenu {
-  char _pad00[0x594];  // 0x00
-
-  static void (CConfirmMenu::*Render)(IDirect3DDevice8* id3dDevice);
-
-  // Using this factory method because we are invoking a constructor of the
-  // game code, and we want to make sure we correctly allocate/free the
-  // memory required for this structure using the game's operator new and
-  // delete.
-  static std::unique_ptr<CConfirmMenu, void (*)(CConfirmMenu*)> Create(
-      IDirect3DDevice8* id3dDevice, struct CRefManager* refManager,
-      struct CSettings* settings, struct CGameStateManager* gameStateManager) {
-    auto menu = std::unique_ptr<CConfirmMenu, void (*)(CConfirmMenu*)>(
-        reinterpret_cast<CConfirmMenu*>(GameOperatorNew(sizeof(CConfirmMenu))),
-        [](CConfirmMenu* menu) { (menu->*Destructor)(); });
-    (menu.get()->*Constructor)(id3dDevice, refManager, settings,
-                               gameStateManager);
-    return menu;
-  }
-
- private:
-  CConfirmMenu() = default;
-
-  static CConfirmMenu* (CConfirmMenu::*Constructor)(
-      IDirect3DDevice8* id3dDevice, struct CRefManager* refManager,
-      struct CSettings* settings, struct CGameStateManager* gameStateManager);
-  static void (CConfirmMenu::*Destructor)();
-};
-
-CConfirmMenu* (CConfirmMenu::* CConfirmMenu::Constructor)(
-    IDirect3DDevice8* id3dDevice, struct CRefManager* refManager,
-    struct CSettings* settings, struct CGameStateManager* gameStateManager) =
-    AddrToFuncPtr<decltype(Constructor)>(0x477AEC);
-void (CConfirmMenu::* CConfirmMenu::Destructor)() =
-    AddrToFuncPtr<decltype(Destructor)>(0x477D68);
-
-void (CConfirmMenu::* CConfirmMenu::Render)(IDirect3DDevice8* id3dDevice) =
-    AddrToFuncPtr<decltype(Render)>(0x478BB2);
-
-struct CText {
-  char _pad00[0x78];  // 0x00
-
-  static void (CText::*Render)(IDirect3DDevice8* id3dDevice);
-  // Rebuilds the mesh from a new string. Use this to edit the text after
-  // Create.
-  static void (CText::*Update)(IDirect3DDevice8* id3dDevice, STLString* str,
-                               float x, float y, float alpha, char unk,
-                               int unk2, int unk3, int unk4);
-
-  static std::unique_ptr<CText, void (*)(CText*)> Create(
-      IDirect3DDevice8* id3dDevice, struct CMaterial* cMaterial,
-      struct CFontMetric* font, STLString* str, float x, float y, float alpha,
-      char unk, int unk2, int unk3, int unk4) {
-    auto text = std::unique_ptr<CText, void (*)(CText*)>(
-        reinterpret_cast<CText*>(GameOperatorNew(sizeof(CText))),
-        [](CText* text) { (text->*DeleteCText)(/*flags=*/1); });
-    (text.get()->*Constructor)(id3dDevice, cMaterial, font, str, x, y, alpha,
-                               unk, unk2, unk3, unk4);
-    return text;
-  }
-
- private:
-  CText() = default;
-
-  static void (CText::*Constructor)(IDirect3DDevice8* id3dDevice,
-                                    struct CMaterial* cMaterial,
-                                    struct CFontMetric* font, STLString* str,
-                                    float x, float y, float alpha, char unk,
-                                    int unk2, int unk3, int unk4);
-  static void (CText::*DeleteCText)(int flags);
-};
-
-void (CText::* CText::Render)(IDirect3DDevice8* id3dDevice) =
-    AddrToFuncPtr<decltype(Render)>(0x449CF3);
-void (CText::* CText::Update)(IDirect3DDevice8* id3dDevice, STLString* str,
-                              float x, float y, float alpha, char unk, int unk2,
-                              int unk3, int unk4) =
-    AddrToFuncPtr<decltype(Update)>(0x449060);
-void (CText::* CText::Constructor)(
-    IDirect3DDevice8* id3dDevice, struct CMaterial* cMaterial,
-    struct CFontMetric* font, STLString* str, float x, float y, float alpha,
-    char unk, int unk2, int unk3,
-    int unk4) = AddrToFuncPtr<decltype(Constructor)>(0x448464);
-void (CText::* CText::DeleteCText)(int flags) =
-    AddrToFuncPtr<decltype(DeleteCText)>(0x438E5C);
-
-struct MaterialRef {
-  char __pad00[0x24];
-  STLString part1;
-  STLString part2;
-  STLString part3;
-  STLString part4;
-  STLString part5;
-};
-
-static_assert(offsetof(MaterialRef, part1) == 0x24);
-static_assert(offsetof(MaterialRef, part2) == 0x40);
-static_assert(offsetof(MaterialRef, part3) == 0x5C);
-static_assert(offsetof(MaterialRef, part4) == 0x78);
-static_assert(offsetof(MaterialRef, part5) == 0x94);
-
-struct CRefManager {
-  char __pad00[0x50];
-  STLVector<MaterialRef*> materialRefs;
-};
-
-static_assert(offsetof(CRefManager, materialRefs) == 0x50);
 
 struct CGameUI {
   char _pad00[0x504];                                                 // 0x000
@@ -259,10 +151,10 @@ struct CGameUI {
   CRefManager* refManager;                                            // 0x528
   struct CGameStateManager* gameStateManager;                         // 0x52C
   char _pad02a[0x564 - (sizeof(struct CGameStateManager*) + 0x52C)];  // 0x530
-  struct CMaterial* fontMaterial;                                     // 0x564
-  char _pad02b[0x570 - (sizeof(struct CMaterial*) + 0x564)];          // 0x568
-  struct CFontMetric* font;                                           // 0x570
-  char _pad03[0x578 - (sizeof(struct CFontMetric*) + 0x570)];         // 0x574
+  CMaterial* fontMaterial;                                            // 0x564
+  char _pad02b[0x570 - (sizeof(CMaterial*) + 0x564)];                 // 0x568
+  CFontMetric* font;                                                  // 0x570
+  char _pad03[0x578 - (sizeof(CFontMetric*) + 0x570)];                // 0x574
   CCharacter* character;                                              // 0x578
 
   static bool (CGameUI::*Paused)();
