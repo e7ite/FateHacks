@@ -7,32 +7,19 @@
 
 #include <WinUser.h>
 
+#include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <string>
 
-#include "abi.hpp"
 #include "client.hpp"
 #include "detour.hpp"
-#include "input.hpp"
-#include "render.hpp"
-#include "stl.hpp"
-
-// client.hpp/input.hpp/render.hpp's contents live in `namespace fate`; the
-// structs below still defined here (not yet split out) name them unqualified,
-// so bring them in by name. This goes away once those structs move to their
-// own modules too.
-using ::fate::CCharacter;
-using ::fate::CGameUI;
-using ::fate::CMouseHandler;
-using ::fate::CRefManager;
-using ::fate::IDirect3DDevice8;
-
-// All desired custom desired should be placed here, as it is passed all the
-// essential game structures from the CGameClient::Update detour, which runs on
-// every frame.
-void CheatMain(struct CGameClient* client, struct IDirect3DDevice8* id3dDevice);
 
 namespace {
+
+// In the anonymous namespace so it's visible through the rest of this file
+// (DllMain below) without `fate::` qualification.
+using ::fate::InstallClientDetours;
 
 std::wstring FormatError(DWORD lastError) {
   LPWSTR message;
@@ -87,51 +74,6 @@ BOOL DestroyDebuggingConsole() {
 
 }  // namespace
 
-#pragma pack(push, 1)
-struct CGameClient {
-  char _pad00[0x08];                                  // 0x000
-  CRefManager* refManager;                            // 0x008
-  char _pad01[0x544 - (sizeof(CRefManager*) + 0x8)];  // 0x2A0
-  IDirect3DDevice8* id3dDevice;                       // 0x544
-  char _pad02[0xD0];                                  // 0x548
-  struct CLevel* level;                               // 0x618
-  char _pad03[0x40];                                  // 0x61C
-  CGameUI* ui;                                        // 0x65C
-
-  // This is the main detour for this cheat, which redirects code execution to
-  // the cheat entry point located below.
-  static void (CGameClient::*Update)(IDirect3DDevice8* id3dDevice, HWND handle,
-                                     float unk);
-  void UpdateDetour(IDirect3DDevice8* id3dDevice, HWND handle, float unk) {
-    void CheatMain(CGameClient * client, IDirect3DDevice8 * id3dDevice);
-    CheatMain(this, id3dDevice);
-
-    (this->*Update)(id3dDevice, handle, unk);
-  }
-};
-#pragma pack(pop)
-
-static_assert(offsetof(CGameClient, id3dDevice) == 0x544);
-static_assert(offsetof(CGameClient, refManager) == 0x8);
-static_assert(offsetof(CGameClient, level) == 0x618);
-static_assert(offsetof(CGameClient, ui) == 0x65C);
-
-void (CGameClient::* CGameClient::Update)(IDirect3DDevice8* id3dDevice,
-                                          HWND handle, float unk) =
-    AddrToFuncPtr<decltype(Update)>(0x482BD5);
-
-void CheatMain(CGameClient* client, IDirect3DDevice8* id3dDevice) {
-  CGameUI* ui = client->ui;
-
-  // Give gold on left-click. This runs in the Update phase (via UpdateDetour),
-  // where the "just pressed" mouse state is still fresh. (The overlay text is
-  // drawn in CGameUI::RenderDetour, which runs in the render phase.)
-  if (!(ui->*CGameUI::Paused)() && (ui->mouse.*CMouseHandler::ButtonPressed)(
-                                       CMouseHandler::EButton::LEFT_CLICK)) {
-    (ui->character->*CCharacter::GiveGold)(100);
-  }
-}
-
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
                       LPVOID lpReserved) {
   switch (ul_reason_for_call) {
@@ -139,13 +81,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
       if (!CreateDebuggingConsole()) {
         return FALSE;
       }
-
-      if (!AttachDetour(reinterpret_cast<PVOID*>(&CGameClient::Update),
-                        FuncPtrToPVoid(&CGameClient::UpdateDetour))) {
-        return FALSE;
-      }
-      if (!AttachDetour(reinterpret_cast<PVOID*>(&CGameUI::Render),
-                        FuncPtrToPVoid(&CGameUI::RenderDetour))) {
+      if (!InstallClientDetours()) {
         return FALSE;
       }
     } break;
@@ -153,7 +89,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
       if (!DestroyDebuggingConsole()) {
         return FALSE;
       }
-
       DetachAllDetours();
     } break;
   }

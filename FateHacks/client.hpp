@@ -1,8 +1,8 @@
 #ifndef FATEHACKS_CLIENT_HPP_
 #define FATEHACKS_CLIENT_HPP_
 
-// Top-level game objects: the player character and the in-game UI. (The game
-// client itself, CGameClient, is still being extracted -- see client.cpp.)
+// Top-level game objects: the player character, the in-game UI, and the game
+// client that owns them (the object our detours attach to).
 
 #include "input.hpp"
 #include "render.hpp"
@@ -46,7 +46,33 @@ static_assert(offsetof(CGameUI, fontMaterial) == 0x564);
 static_assert(offsetof(CGameUI, font) == 0x570);
 static_assert(offsetof(CGameUI, character) == 0x578);
 
+struct CGameClient {
+  char _pad00[0x08];                                  // 0x000
+  CRefManager* refManager;                            // 0x008
+  char _pad01[0x544 - (sizeof(CRefManager*) + 0x8)];  // 0x2A0
+  IDirect3DDevice8* id3dDevice;                       // 0x544
+  char _pad02[0xD0];                                  // 0x548
+  struct CLevel* level;                               // 0x618
+  char _pad03[0x40];                                  // 0x61C
+  CGameUI* ui;                                        // 0x65C
+
+  // The main detour for this cheat: it redirects execution to the cheat entry
+  // point (CheatMain) every frame. Body is in client.cpp.
+  static void (CGameClient::*Update)(IDirect3DDevice8* id3dDevice, HWND handle,
+                                     float unk);
+  void UpdateDetour(IDirect3DDevice8* id3dDevice, HWND handle, float unk);
+};
 #pragma pack(pop)
+
+static_assert(offsetof(CGameClient, id3dDevice) == 0x544);
+static_assert(offsetof(CGameClient, refManager) == 0x8);
+static_assert(offsetof(CGameClient, level) == 0x618);
+static_assert(offsetof(CGameClient, ui) == 0x65C);
+
+// Hooks CGameClient::Update and CGameUI::Render so UpdateDetour/RenderDetour
+// run every frame. Called once from DllMain; returns false if either hook
+// fails.
+bool InstallClientDetours();
 
 }  // namespace fate
 
