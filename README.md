@@ -1,3 +1,9 @@
+<div align="right">
+
+[![CI](https://github.com/e7ite/FateHacks/actions/workflows/ci.yml/badge.svg)](https://github.com/e7ite/FateHacks/actions/workflows/ci.yml)
+
+</div>
+
 # FateHacks
 
 This is a reverse-engineering project for the FATE game on Steam. This project will produce a DLL file that can be injected into the game using your favorite cheat injector
