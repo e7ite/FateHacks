@@ -14,6 +14,37 @@ namespace fate {
 // pointers to it through to game functions.
 struct IDirect3DDevice8;
 
+// A loaded bitmap font's per-character metrics, laid out the way
+// CText::Update reads them: derived from decompiling that function (both the
+// Windows and Mac builds) rather than documented anywhere.
+struct CFontMetric {
+  // Per-glyph advance width in pixels, indexed by (unsigned char) character
+  // code.
+  int charWidths[256];  // 0x000
+  // Added once per character when summing a string's total width.
+  float spacing;  // 0x400
+  // Added to every glyph's raw width before it contributes to a string's
+  // total width.
+  int widthBias;  // 0x404
+
+  // The on-screen width of `text` at `scale`, matching CText::Update's layout
+  // math -- so checking a click against a rendered label can use the same
+  // numbers the game used to draw it.
+  float TextWidth(const char* text, float scale) const {
+    float total = 0.0f;
+    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(text);
+         *p != '\0'; ++p) {
+      unsigned int raw_width = static_cast<unsigned int>(widthBias) +
+                               static_cast<unsigned int>(charWidths[*p]);
+      total += (static_cast<float>(raw_width) + spacing) * scale;
+    }
+    return total;
+  }
+};
+
+static_assert(offsetof(CFontMetric, spacing) == 0x400);
+static_assert(offsetof(CFontMetric, widthBias) == 0x404);
+
 struct CText {
   char _pad00[0x78];  // 0x00
 
