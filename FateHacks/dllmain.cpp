@@ -14,6 +14,14 @@
 #include <vector>
 
 #include "abi.hpp"
+#include "stl.hpp"
+
+// stl.hpp's contents live in `namespace fate`; the structs below still defined
+// here (not yet split out) name them unqualified, so bring them in by name.
+// This goes away once those structs move to their own modules too.
+using ::fate::GameOperatorNew;
+using ::fate::STLString;
+using ::fate::STLVector;
 
 // All desired custom desired should be placed here, as it is passed all the
 // essential game structures from the CGameClient::Update detour, which runs on
@@ -120,13 +128,6 @@ std::vector<DetourData> gDetours;
 
 }  // namespace
 
-// Needed because it is not safe for the DLL to allocate heap memory, so we
-// should use the game's allocation methods.
-void*(__cdecl* GameOperatorNew)(size_t size) =
-    reinterpret_cast<void* (*)(size_t)>(0x6364DCUL);
-void(__cdecl* GameOperatorDelete)(void*) =
-    reinterpret_cast<void (*)(void*)>(0x637E4BUL);
-
 #pragma pack(push, 1)
 struct CKeyHandler {
   char _pad00[0x4];  // 0x00
@@ -209,46 +210,6 @@ void (CConfirmMenu::* CConfirmMenu::Destructor)() =
 
 void (CConfirmMenu::* CConfirmMenu::Render)(IDirect3DDevice8* id3dDevice) =
     AddrToFuncPtr<decltype(Render)>(0x478BB2);
-
-// Needed because the standard library implementation used by the game most
-// likely is not the same as the one included by MVSC here.
-template <typename T>
-struct STLVector {
-  static int (STLVector<T>::*size)();
-
-  T* operator[](int idx) { return (this->*opIndex)(idx); }
-
-  static T* (STLVector<T>::*opIndex)(int idx);
-};
-
-template <typename T>
-int (STLVector<T>::* STLVector<T>::size)() =
-    AddrToFuncPtr<decltype(size)>(0x417560);
-template <typename T>
-T* (STLVector<T>::* STLVector<T>::opIndex)(int idx) =
-    AddrToFuncPtr<decltype(opIndex)>(0x41758E);
-
-struct STLString {
-  STLString() { (this->*STLString::constructor)(""); }
-  STLString(const char* str) { (this->*STLString::constructor)(str); }
-  ~STLString() { (this->*STLString::destructor)(0, 0); }
-
-  static char* (STLString::*get)();
-  static void (STLString::*constructor)(const char* str);
-  static void (STLString::*destructor)(int unk, int unk2);
-
- private:
-  // Size reference from 0x40FB6E mentioning the size of the string in stack is
-  // 0x1C, and 0x42D8C3 mentioning the next member set is 0x1C offset after
-  // string.
-  char __pad00[0x1C];
-};
-
-char* (STLString::* STLString::get)() = AddrToFuncPtr<decltype(get)>(0x403808);
-void (STLString::* STLString::constructor)(const char* str) =
-    AddrToFuncPtr<decltype(constructor)>(0x405BAC);
-void (STLString::* STLString::destructor)(int unk, int unk2) =
-    AddrToFuncPtr<decltype(destructor)>(0x4035E6);
 
 struct CText {
   char _pad00[0x78];  // 0x00
