@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  tests:
+    name: Build and run tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      # Restore the project's dependencies through the runner's preinstalled
+      # vcpkg (Detours for the DLL, Google Test/Mock for the test target), then
+      # integrate so MSBuild finds their headers and libs -- the same user-wide
+      # integration used locally.
+      - name: Install dependencies via vcpkg
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" install detours:x86-windows gtest:x86-windows
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" integrate install
+
+      # Building the test project runs the suite via its post-build step, so a
+      # green build here means the tests passed.
+      - name: Build and run tests
+        run: msbuild FateHacks\FateHacksTests.vcxproj /p:Configuration=Debug /p:Platform=Win32 /nologo /v:minimal
