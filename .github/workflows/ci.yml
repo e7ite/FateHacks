@@ -1,9 +1,6 @@
 name: CI
 
-on:
-  push:
-    branches: [master, main]
-  pull_request:
+on: [push, pull_request]
 
 jobs:
   tests:
@@ -15,17 +12,22 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
-      # Restore the project's dependencies through the runner's preinstalled
-      # vcpkg (Detours for the DLL, Google Test/Mock for the test target), then
-      # integrate so MSBuild finds their headers and libs -- the same user-wide
-      # integration used locally.
-      - name: Install dependencies via vcpkg
+      # The test target links Google Test/Mock statically from vcpkg; restore
+      # them and integrate so MSBuild finds them. Only the test project is built
+      # here -- never the DLL -- so nothing is injected into the game.
+      # Binary caching is disabled so gtest is always built from source against
+      # the runner's current MSVC -- a cached build from an older toolset can
+      # leave calls to internal STL helpers (e.g. __std_rotate) unresolved at
+      # link time.
+      - name: Install Google Test via vcpkg
         shell: pwsh
+        env:
+          VCPKG_BINARY_SOURCES: clear
         run: |
-          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" install detours:x86-windows gtest:x86-windows
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" install gtest:x86-windows-static-md
           & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" integrate install
 
-      # Building the test project runs the suite via its post-build step, so a
+      # Building the test project runs the suite via its RunTests target, so a
       # green build here means the tests passed.
       - name: Build and run tests
         run: msbuild FateHacks\FateHacksTests.vcxproj /p:Configuration=Debug /p:Platform=Win32 /nologo /v:minimal

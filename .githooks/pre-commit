@@ -1,0 +1,3 @@
+#!/bin/sh
+# Reject the commit unless the Google Test suite builds and passes.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".githooks/run-tests.ps1"

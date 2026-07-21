@@ -61,3 +61,8 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Git hooks must keep LF endings so their shebang works under Git Bash.
+###############################################################################
+.githooks/pre-commit text eol=lf
