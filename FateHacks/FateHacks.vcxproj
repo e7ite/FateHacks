@@ -166,12 +166,14 @@
     <ClCompile Include="stl.cpp" />
     <ClCompile Include="input.cpp" />
     <ClCompile Include="render.cpp" />
+    <ClCompile Include="detour.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abi.hpp" />
     <ClInclude Include="stl.hpp" />
     <ClInclude Include="input.hpp" />
     <ClInclude Include="render.hpp" />
+    <ClInclude Include="detour.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

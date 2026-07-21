@@ -6,14 +6,13 @@
 // clang-format on
 
 #include <WinUser.h>
-#include <detours/detours.h>
 
 #include <iostream>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "abi.hpp"
+#include "detour.hpp"
 #include "input.hpp"
 #include "render.hpp"
 #include "stl.hpp"
@@ -36,49 +35,6 @@ using ::fate::STLString;
 void CheatMain(struct CGameClient* client, struct IDirect3DDevice8* id3dDevice);
 
 namespace {
-
-struct DetourData {
-  PVOID* targetFunction;
-  PVOID detourFunction;
-
-  DetourData(PVOID* targetFunction, PVOID detourFunction)
-      : targetFunction(targetFunction), detourFunction(detourFunction) {}
-};
-
-LONG DetourCreate(PVOID* targetFunction, PVOID detourFunction) {
-  // Initiate Detour Transcation API
-  DetourTransactionBegin();
-
-  // Enlists Current Thread in Transaction to Appropriately Update
-  // Instruction Pointers for That Thread
-  DetourUpdateThread(GetCurrentThread());
-
-  // Allocates the Detour for the Target Function
-  DetourAttach(targetFunction, detourFunction);
-
-  // Overwrites the first instruction in the target function to jmp
-  // to Detour before returning to target function to restore program flow
-  LONG resultStatus = DetourTransactionCommit();
-  return resultStatus;
-}
-
-LONG DetourRemove(PVOID* targetFunction, PVOID detourFunction) {
-  // Initiate Detour Transcation API
-  DetourTransactionBegin();
-
-  // Enlists Current Thread in Transaction to Appropriately Update
-  // Instruction Pointers for That Thread
-  DetourUpdateThread(GetCurrentThread());
-
-  // Deallocates the Detour for the Target Function
-  DetourDetach(targetFunction, detourFunction);
-
-  // Restores overwritten instructions of Target Function
-  // and restores Target Function Pointer to point to original
-  // function
-  LONG resultStatus = DetourTransactionCommit();
-  return resultStatus;
-}
 
 std::wstring FormatError(DWORD lastError) {
   LPWSTR message;
@@ -130,8 +86,6 @@ BOOL DestroyDebuggingConsole() {
 
   return TRUE;
 }
-
-std::vector<DetourData> gDetours;
 
 }  // namespace
 
@@ -251,30 +205,21 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
         return FALSE;
       }
 
-      DetourData updateDetour(reinterpret_cast<PVOID*>(&CGameClient::Update),
-                              FuncPtrToPVoid(&CGameClient::UpdateDetour));
-      if (DetourCreate(updateDetour.targetFunction,
-                       updateDetour.detourFunction) != NO_ERROR) {
+      if (!AttachDetour(reinterpret_cast<PVOID*>(&CGameClient::Update),
+                        FuncPtrToPVoid(&CGameClient::UpdateDetour))) {
         return FALSE;
       }
-      gDetours.push_back(updateDetour);
-
-      DetourData renderUIDetour(reinterpret_cast<PVOID*>(&CGameUI::Render),
-                                FuncPtrToPVoid(&CGameUI::RenderDetour));
-      if (DetourCreate(renderUIDetour.targetFunction,
-                       renderUIDetour.detourFunction) != NO_ERROR) {
+      if (!AttachDetour(reinterpret_cast<PVOID*>(&CGameUI::Render),
+                        FuncPtrToPVoid(&CGameUI::RenderDetour))) {
         return FALSE;
       }
-      gDetours.push_back(renderUIDetour);
     } break;
     case DLL_PROCESS_DETACH: {
       if (!DestroyDebuggingConsole()) {
         return FALSE;
       }
 
-      for (DetourData i : gDetours) {
-        DetourRemove(i.targetFunction, i.detourFunction);
-      }
+      DetachAllDetours();
     } break;
   }
   return TRUE;
