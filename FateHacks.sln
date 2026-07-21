@@ -1,9 +1,11 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31702.278
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FateHacks", "FateHacks\FateHacks.vcxproj", "{DAB50AD3-BDBC-473A-8584-D3F748FDDAAB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FateHacksTests", "FateHacks\FateHacksTests.vcxproj", "{7E5D2C10-9A3B-4F62-B1D4-8C2E5A9F0011}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,12 @@ Global
 		{DAB50AD3-BDBC-473A-8584-D3F748FDDAAB}.Release|x64.Build.0 = Release|x64
 		{DAB50AD3-BDBC-473A-8584-D3F748FDDAAB}.Release|x86.ActiveCfg = Release|Win32
 		{DAB50AD3-BDBC-473A-8584-D3F748FDDAAB}.Release|x86.Build.0 = Release|Win32
+		{7E5D2C10-9A3B-4F62-B1D4-8C2E5A9F0011}.Debug|x64.ActiveCfg = Debug|Win32
+		{7E5D2C10-9A3B-4F62-B1D4-8C2E5A9F0011}.Debug|x86.ActiveCfg = Debug|Win32
+		{7E5D2C10-9A3B-4F62-B1D4-8C2E5A9F0011}.Debug|x86.Build.0 = Debug|Win32
+		{7E5D2C10-9A3B-4F62-B1D4-8C2E5A9F0011}.Release|x64.ActiveCfg = Release|Win32
+		{7E5D2C10-9A3B-4F62-B1D4-8C2E5A9F0011}.Release|x86.ActiveCfg = Release|Win32
+		{7E5D2C10-9A3B-4F62-B1D4-8C2E5A9F0011}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
