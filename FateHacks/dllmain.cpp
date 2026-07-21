@@ -8,26 +8,24 @@
 #include <WinUser.h>
 
 #include <iostream>
-#include <memory>
 #include <string>
 
 #include "abi.hpp"
+#include "client.hpp"
 #include "detour.hpp"
 #include "input.hpp"
 #include "render.hpp"
 #include "stl.hpp"
 
-// stl.hpp/input.hpp/render.hpp's contents live in `namespace fate`; the structs
-// below still defined here (not yet split out) name them unqualified, so bring
-// them in by name. This goes away once those structs move to their own modules
-// too.
-using ::fate::CFontMetric;
-using ::fate::CMaterial;
+// client.hpp/input.hpp/render.hpp's contents live in `namespace fate`; the
+// structs below still defined here (not yet split out) name them unqualified,
+// so bring them in by name. This goes away once those structs move to their
+// own modules too.
+using ::fate::CCharacter;
+using ::fate::CGameUI;
 using ::fate::CMouseHandler;
 using ::fate::CRefManager;
-using ::fate::CText;
 using ::fate::IDirect3DDevice8;
-using ::fate::STLString;
 
 // All desired custom desired should be placed here, as it is passed all the
 // essential game structures from the CGameClient::Update detour, which runs on
@@ -90,46 +88,6 @@ BOOL DestroyDebuggingConsole() {
 }  // namespace
 
 #pragma pack(push, 1)
-struct CCharacter {
-  static void (CCharacter::*GiveGold)(int amount);
-};
-
-void (CCharacter::* CCharacter::GiveGold)(int amount) =
-    AddrToFuncPtr<decltype(GiveGold)>(0x59DEB3);
-
-struct CGameUI {
-  char _pad00[0x504];                                                 // 0x000
-  CMouseHandler mouse;                                                // 0x504
-  char _pad01[0x1C];                                                  // 0x508
-  struct CSettings* settings;                                         // 0x524
-  CRefManager* refManager;                                            // 0x528
-  struct CGameStateManager* gameStateManager;                         // 0x52C
-  char _pad02a[0x564 - (sizeof(struct CGameStateManager*) + 0x52C)];  // 0x530
-  CMaterial* fontMaterial;                                            // 0x564
-  char _pad02b[0x570 - (sizeof(CMaterial*) + 0x564)];                 // 0x568
-  CFontMetric* font;                                                  // 0x570
-  char _pad03[0x578 - (sizeof(CFontMetric*) + 0x570)];                // 0x574
-  CCharacter* character;                                              // 0x578
-
-  static bool (CGameUI::*Paused)();
-
-  static bool (CGameUI::*Render)(IDirect3DDevice8* id3dDevice,
-                                 struct CGameClient* client, void* unk,
-                                 void* unk2);
-  bool RenderDetour(IDirect3DDevice8* id3dDevice, struct CGameClient* client,
-                    void* unk, void* unk2);
-};
-
-static_assert(offsetof(CGameUI, mouse) == 0x504);
-static_assert(offsetof(CGameUI, settings) == 0x524);
-static_assert(offsetof(CGameUI, refManager) == 0x528);
-static_assert(offsetof(CGameUI, gameStateManager) == 0x52C);
-static_assert(offsetof(CGameUI, fontMaterial) == 0x564);
-static_assert(offsetof(CGameUI, font) == 0x570);
-static_assert(offsetof(CGameUI, character) == 0x578);
-
-bool (CGameUI::* CGameUI::Paused)() = AddrToFuncPtr<decltype(Paused)>(0x43759B);
-
 struct CGameClient {
   char _pad00[0x08];                                  // 0x000
   CRefManager* refManager;                            // 0x008
@@ -161,29 +119,6 @@ static_assert(offsetof(CGameClient, ui) == 0x65C);
 void (CGameClient::* CGameClient::Update)(IDirect3DDevice8* id3dDevice,
                                           HWND handle, float unk) =
     AddrToFuncPtr<decltype(Update)>(0x482BD5);
-
-std::unique_ptr<CText, void (*)(CText*)> gOverlayText(nullptr, nullptr);
-
-bool (CGameUI::* CGameUI::Render)(IDirect3DDevice8* id3dDevice,
-                                  CGameClient* client, void* unk, void* unk2) =
-    AddrToFuncPtr<decltype(Render)>(0x4A2E7D);
-bool CGameUI::RenderDetour(IDirect3DDevice8* id3dDevice, CGameClient* client,
-                           void* unk, void* unk2) {
-  // Let the game draw its UI first, then draw ours on top.
-  bool status = (this->*Render)(id3dDevice, client, unk, unk2);
-
-  if (gOverlayText == nullptr && fontMaterial != nullptr && font != nullptr) {
-    STLString str("Hellfateo world!");
-    gOverlayText = CText::Create(id3dDevice, fontMaterial, font, &str, 100, 10,
-                                 0.8f, 0, 2, 1024, 768);
-  }
-
-  if (gOverlayText) {
-    (gOverlayText.get()->*CText::Render)(id3dDevice);
-  }
-
-  return status;
-}
 
 void CheatMain(CGameClient* client, IDirect3DDevice8* id3dDevice) {
   CGameUI* ui = client->ui;

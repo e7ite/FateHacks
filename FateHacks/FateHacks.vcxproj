@@ -167,6 +167,7 @@
     <ClCompile Include="input.cpp" />
     <ClCompile Include="render.cpp" />
     <ClCompile Include="detour.cpp" />
+    <ClCompile Include="client.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abi.hpp" />
@@ -174,6 +175,7 @@
     <ClInclude Include="input.hpp" />
     <ClInclude Include="render.hpp" />
     <ClInclude Include="detour.hpp" />
+    <ClInclude Include="client.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
