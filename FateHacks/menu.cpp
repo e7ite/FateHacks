@@ -1,5 +1,6 @@
 #include "menu.hpp"
 
+#include <cstring>
 #include <utility>
 
 namespace {
@@ -37,6 +38,13 @@ MenuItem Submenu(const char* label, std::vector<MenuItem> items) {
 Menu::Menu(const char* title, std::vector<MenuItem> items)
     : root_{OverlayText{title}, {}, std::move(items)} {}
 
+int Menu::RowY(std::size_t index, std::size_t count) {
+  constexpr int kCenterY = 768 / 2;
+  constexpr int kRowSpacing = 58;
+  int first_y = kCenterY - (static_cast<int>(count) - 1) * kRowSpacing / 2;
+  return first_y + static_cast<int>(index) * kRowSpacing;
+}
+
 void Menu::Toggle() {
   open_ = !open_;
   nav_stack_ =
@@ -57,6 +65,45 @@ void Menu::Back() {
 const char* Menu::title() const { return CurrentParent().label.text(); }
 
 std::size_t Menu::item_count() const { return CurrentParent().submenu.size(); }
+
+bool Menu::IsItemHovered(std::size_t index, int mouse_x, int mouse_y) const {
+  constexpr int kMinHalfWidth = 80;
+  constexpr int kCharWidth = 12;
+  constexpr int kHorizontalPadding = 18;
+  constexpr int kTopPadding = 14;
+  constexpr int kBottomPadding = 16;
+
+  const std::vector<MenuItem>& items = CurrentParent().submenu;
+  const char* label = items[index].label.text();
+  int y = RowY(index, items.size());
+
+  // The clickable box widens with the label so longer entries stay easy to
+  // click, but never shrinks below a minimum width.
+  int text_half_width = static_cast<int>(std::strlen(label)) * kCharWidth / 2 +
+                        kHorizontalPadding;
+  int half_width =
+      text_half_width > kMinHalfWidth ? text_half_width : kMinHalfWidth;
+  return mouse_x >= kCenterX - half_width && mouse_x <= kCenterX + half_width &&
+         mouse_y >= y - kTopPadding && mouse_y <= y + kBottomPadding;
+}
+
+void Menu::Activate(int mouse_x, int mouse_y) {
+  if (!open_) {
+    return;
+  }
+  std::vector<MenuItem>& items = CurrentParent().submenu;
+  for (std::size_t i = 0; i < items.size(); ++i) {
+    if (!IsItemHovered(i, mouse_x, mouse_y)) {
+      continue;
+    }
+    if (!items[i].submenu.empty()) {
+      nav_stack_.push(&items[i]);  // descend into the submenu
+    } else if (items[i].action) {
+      items[i].action();
+    }
+    return;
+  }
+}
 
 MenuItem& Menu::CurrentParent() {
   return nav_stack_.empty() ? root_ : *nav_stack_.top();

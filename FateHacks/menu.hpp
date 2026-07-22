@@ -69,6 +69,14 @@ class Menu {
   // submenu).
   Menu(const char* title, std::vector<MenuItem> items);
 
+  // Screen-center X in the game's virtual 1024x768 space; rows center here.
+  // Public so tests can build the coordinates of a specific row to click.
+  static constexpr int kCenterX = 1024 / 2;
+
+  // The Y of row `index` when `count` rows are shown, with the block centered
+  // vertically. Public for the same reason as kCenterX.
+  static int RowY(std::size_t index, std::size_t count);
+
   // Opens the menu if closed, closes it if open; always reopens at the main
   // menu.
   void Toggle();
@@ -87,6 +95,15 @@ class Menu {
   // Number of items on the level currently shown (the main menu or a
   // submenu).
   std::size_t item_count() const;
+
+  // True when (mouse_x, mouse_y) is over item `index` on the level currently
+  // shown. Query-only -- unlike Activate, it never runs the item's action or
+  // descends into its submenu.
+  bool IsItemHovered(std::size_t index, int mouse_x, int mouse_y) const;
+
+  // Activates the item under the mouse: runs a leaf's action or descends into a
+  // submenu. Does nothing if the menu is closed or nothing is hovered.
+  void Activate(int mouse_x, int mouse_y);
 
  private:
   // The item whose label is the heading and whose submenu is the item list
