@@ -10,17 +10,38 @@ namespace {
 
 using ::testing::MockFunction;
 
+// Reports a fixed width for every label, standing in for the game's font so
+// tests don't depend on one being loaded.
+class FixedWidthMeasurer : public TextMeasurer {
+ public:
+  explicit FixedWidthMeasurer(int width) : width_(width) {}
+
+  int MeasureWidth(const char*, float) const override { return width_; }
+
+ private:
+  int width_;
+};
+
+// A measurer whose width is irrelevant to the test at hand.
+TextMeasurer& DefaultMeasurer() {
+  static FixedWidthMeasurer measurer(/*width=*/0);
+  return measurer;
+}
+
 // A minimal two-item menu for exercising navigation without any character
 // cheat.
 Menu MakeMenu() {
-  return Menu("Title", Items(Action("One", [] {}), Action("Two", [] {})));
+  return Menu("Title", Items(Action("One", [] {}), Action("Two", [] {})),
+              &DefaultMeasurer());
 }
 
 // Same as MakeMenu(), but the first item's action calls `func`, for tests
 // that need to see whether activation actually ran an item's action.
-Menu MakeMenu(MockFunction<void()>* func) {
-  return Menu("Title", Items(Action("One", func->AsStdFunction()),
-                             Action("Two", [] {})));
+Menu MakeMenu(MockFunction<void()>* func,
+              TextMeasurer* measurer = &DefaultMeasurer()) {
+  return Menu("Title",
+              Items(Action("One", func->AsStdFunction()), Action("Two", [] {})),
+              measurer);
 }
 
 // Records the player-character cheats the menu triggers, standing in for the
@@ -120,9 +141,23 @@ TEST(MenuTest, ActivatingWhileClosedDoesNothing) {
   menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/0, /*count=*/2));
 }
 
+TEST(MenuTest, ActivatingUsesTheInjectedMeasuredWidth) {
+  MockFunction<void()> func;
+  FixedWidthMeasurer wide_measurer(/*width=*/2000);
+  Menu menu = MakeMenu(&func, &wide_measurer);
+  menu.Toggle();
+
+  EXPECT_CALL(func, Call).Times(1);
+  // Far outside the default ~80px-wide hit box, but inside the box a 2000px
+  // measured width produces -- so this only passes if Menu actually uses the
+  // injected measurer.
+  menu.Activate(Menu::kCenterX + 500,
+                Menu::RowY(/*index=*/0, menu.item_count()));
+}
+
 TEST(CheatMenuTest, TitleAtRootIsTheMenuTitle) {
   MockCharacterActions actions;
-  Menu menu = BuildCheatMenu(&actions);
+  Menu menu = BuildCheatMenu(&actions, &DefaultMeasurer());
   menu.Toggle();
 
   EXPECT_STREQ(menu.title(), "FateHacks");
@@ -130,7 +165,7 @@ TEST(CheatMenuTest, TitleAtRootIsTheMenuTitle) {
 
 TEST(CheatMenuTest, TitleInsideASubmenuIsTheItemDescendedInto) {
   MockCharacterActions actions;
-  Menu menu = BuildCheatMenu(&actions);
+  Menu menu = BuildCheatMenu(&actions, &DefaultMeasurer());
   menu.Toggle();
   menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
 
@@ -139,7 +174,7 @@ TEST(CheatMenuTest, TitleInsideASubmenuIsTheItemDescendedInto) {
 
 TEST(CheatMenuTest, LabelAtNamesTheCurrentLevelItem) {
   MockCharacterActions actions;
-  Menu menu = BuildCheatMenu(&actions);
+  Menu menu = BuildCheatMenu(&actions, &DefaultMeasurer());
   menu.Toggle();
   menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
 
@@ -148,7 +183,7 @@ TEST(CheatMenuTest, LabelAtNamesTheCurrentLevelItem) {
 
 TEST(CheatMenuTest, ActivatingAddGoldGivesHundredGold) {
   MockCharacterActions actions;
-  Menu menu = BuildCheatMenu(&actions);
+  Menu menu = BuildCheatMenu(&actions, &DefaultMeasurer());
   menu.Toggle();
 
   EXPECT_CALL(actions, GiveGold(100)).Times(1);
@@ -157,7 +192,7 @@ TEST(CheatMenuTest, ActivatingAddGoldGivesHundredGold) {
 
 TEST(CheatMenuTest, ActivatingAddGoldXTenGivesThousandGold) {
   MockCharacterActions actions;
-  Menu menu = BuildCheatMenu(&actions);
+  Menu menu = BuildCheatMenu(&actions, &DefaultMeasurer());
   menu.Toggle();
   menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
 
@@ -167,7 +202,7 @@ TEST(CheatMenuTest, ActivatingAddGoldXTenGivesThousandGold) {
 
 TEST(CheatMenuTest, BackFromSubmenuReturnsToRoot) {
   MockCharacterActions actions;
-  Menu menu = BuildCheatMenu(&actions);
+  Menu menu = BuildCheatMenu(&actions, &DefaultMeasurer());
   menu.Toggle();
   menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
 

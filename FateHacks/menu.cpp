@@ -1,6 +1,5 @@
 #include "menu.hpp"
 
-#include <cstring>
 #include <utility>
 
 namespace {
@@ -10,6 +9,12 @@ using ::fate::CMaterial;
 using ::fate::CText;
 using ::fate::IDirect3DDevice8;
 using ::fate::STLString;
+
+// The scale an unhovered row is drawn at (a hovered row draws larger, see
+// Menu::Render). Menu::IsItemHovered checks clicks against this same
+// baseline, so a TextMeasurer backed by the real font measures what's
+// actually on screen.
+constexpr float kUnhoveredScale = 0.85f;
 
 }  // namespace
 
@@ -35,8 +40,9 @@ MenuItem Submenu(const char* label, std::vector<MenuItem> items) {
   return MenuItem{OverlayText{label}, {}, std::move(items)};
 }
 
-Menu::Menu(const char* title, std::vector<MenuItem> items)
-    : root_{OverlayText{title}, {}, std::move(items)} {}
+Menu::Menu(const char* title, std::vector<MenuItem> items,
+           TextMeasurer* measurer)
+    : root_{OverlayText{title}, {}, std::move(items)}, measurer_(measurer) {}
 
 int Menu::RowY(std::size_t index, std::size_t count) {
   constexpr int kCenterY = 768 / 2;
@@ -72,7 +78,6 @@ const char* Menu::label_at(std::size_t index) const {
 
 bool Menu::IsItemHovered(std::size_t index, int mouse_x, int mouse_y) const {
   constexpr int kMinHalfWidth = 80;
-  constexpr int kCharWidth = 12;
   constexpr int kHorizontalPadding = 18;
   constexpr int kTopPadding = 14;
   constexpr int kBottomPadding = 16;
@@ -81,10 +86,10 @@ bool Menu::IsItemHovered(std::size_t index, int mouse_x, int mouse_y) const {
   const char* label = items[index].label.text();
   int y = RowY(index, items.size());
 
-  // The clickable box widens with the label so longer entries stay easy to
-  // click, but never shrinks below a minimum width.
-  int text_half_width = static_cast<int>(std::strlen(label)) * kCharWidth / 2 +
-                        kHorizontalPadding;
+  // The clickable box widens with the label's measured width so longer
+  // entries stay easy to click, but never shrinks below a minimum width.
+  int text_half_width =
+      measurer_->MeasureWidth(label, kUnhoveredScale) / 2 + kHorizontalPadding;
   int half_width =
       text_half_width > kMinHalfWidth ? text_half_width : kMinHalfWidth;
   return mouse_x >= kCenterX - half_width && mouse_x <= kCenterX + half_width &&
@@ -114,9 +119,8 @@ void Menu::Render(IDirect3DDevice8* device, CMaterial* material,
   if (!open_) {
     return;
   }
-  // The scale an unhovered row is drawn at; a hovered row draws larger, at
-  // kHoveredScale, so it reads as selected.
-  constexpr float kUnhoveredScale = 0.85f;
+  // The scale a hovered row is drawn at; brighter and larger than
+  // kUnhoveredScale is how a hovered row reads as selected.
   constexpr float kHoveredScale = 1.0f;
   // The heading sits above the first item, drawn larger so it reads as a
   // title.
@@ -143,12 +147,15 @@ const MenuItem& Menu::CurrentParent() const {
   return nav_stack_.empty() ? root_ : *nav_stack_.top();
 }
 
-Menu BuildCheatMenu(CharacterActions* actions) {
+Menu BuildCheatMenu(CharacterActions* actions, TextMeasurer* measurer) {
   return Menu("FateHacks",
               Items(Action("Add Gold", [actions] { actions->GiveGold(100); }),
-                    Submenu("More", Items(Action("Add Gold x10", [actions] {
-                              for (int i = 0; i < 10; ++i) {
-                                actions->GiveGold(100);
-                              }
-                            })))));
+                    Submenu("More", Items(Action("Add Gold x10",
+                                                 [actions] {
+                                                   for (int i = 0; i < 10;
+                                                        ++i) {
+                                                     actions->GiveGold(100);
+                                                   }
+                                                 })))),
+              measurer);
 }

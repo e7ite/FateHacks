@@ -17,6 +17,15 @@ class CharacterActions {
   virtual void GiveGold(int amount) = 0;
 };
 
+// Measures the on-screen width of menu label text at the given scale, in
+// pixels. Injected because real measurement depends on the game's loaded
+// font; tests substitute a fake with known widths.
+class TextMeasurer {
+ public:
+  virtual ~TextMeasurer() = default;
+  virtual int MeasureWidth(const char* text, float scale) const = 0;
+};
+
 // A single line of menu text that owns its CText: created lazily on first draw,
 // then restyled in place each frame via CText::Update -- the way the game edits
 // its own text -- so the render loop never reallocates GPU objects. Building
@@ -68,8 +77,9 @@ std::vector<MenuItem> Items(Ts&&... items) {
 class Menu {
  public:
   // `title` is the heading shown at the main menu (before descending into a
-  // submenu).
-  Menu(const char* title, std::vector<MenuItem> items);
+  // submenu). `measurer` is used to check clicks against each row's
+  // rendered width; it must outlive the Menu.
+  Menu(const char* title, std::vector<MenuItem> items, TextMeasurer* measurer);
 
   // Screen-center X in the game's virtual 1024x768 space; rows center here.
   // Public so tests can build the coordinates of a specific row to click.
@@ -126,6 +136,7 @@ class Menu {
   const MenuItem& CurrentParent() const;
 
   MenuItem root_;
+  TextMeasurer* measurer_;
   bool open_ = false;
   // Items descended into, root-to-leaf; always empty until something can
   // actually descend into a submenu. The tree's shape never changes after
@@ -136,7 +147,8 @@ class Menu {
   std::stack<MenuItem*> nav_stack_;
 };
 
-// Builds the FateHacks cheat menu, wiring every item's action to `actions`.
-Menu BuildCheatMenu(CharacterActions* actions);
+// Builds the FateHacks cheat menu, wiring every item's action to `actions` and
+// checking clicks against `measurer`.
+Menu BuildCheatMenu(CharacterActions* actions, TextMeasurer* measurer);
 
 #endif  // FATEHACKS_MENU_HPP_
