@@ -58,6 +58,12 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <!-- Compile with the STL's vectorized algorithm helpers disabled so our
+           objects match how gtest is built. gtest's std::rotate otherwise
+           references __std_rotate, a helper the CI runner's x86 import
+           libraries don't provide, which fails the link. gtest gets the same
+           treatment via the vcpkg overlay triplet (triplets/). -->
+      <PreprocessorDefinitions>_USE_STD_VECTOR_ALGORITHMS=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -72,6 +78,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <PreprocessorDefinitions>_USE_STD_VECTOR_ALGORITHMS=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

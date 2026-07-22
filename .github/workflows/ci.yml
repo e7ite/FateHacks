@@ -14,17 +14,13 @@ jobs:
 
       # The test target links Google Test/Mock statically from vcpkg; restore
       # them and integrate so MSBuild finds them. Only the test project is built
-      # here -- never the DLL -- so nothing is injected into the game.
-      # Binary caching is disabled so gtest is always built from source against
-      # the runner's current MSVC -- a cached build from an older toolset can
-      # leave calls to internal STL helpers (e.g. __std_rotate) unresolved at
-      # link time.
+      # here -- never the DLL -- so nothing is injected into the game. The
+      # overlay triplet (triplets/) builds gtest with the STL's vectorized
+      # algorithm helpers disabled; see that file for why.
       - name: Install Google Test via vcpkg
         shell: pwsh
-        env:
-          VCPKG_BINARY_SOURCES: clear
         run: |
-          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" install gtest:x86-windows-static-md
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" install gtest:x86-windows-static-md --overlay-triplets="$env:GITHUB_WORKSPACE\triplets"
           & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" integrate install
 
       # Building the test project runs the suite via its RunTests target, so a
