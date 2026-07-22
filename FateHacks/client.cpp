@@ -19,8 +19,15 @@ class GameCharacterActions : public CharacterActions {
     }
   }
 
+  // Plain method, not `override`: nothing calls this through the
+  // `CharacterActions*` interface yet, only `damage_multiplier()` below (read
+  // directly by the detour).
+  void SetDamageMultiplier(int multiplier) { damage_multiplier_ = multiplier; }
+  int damage_multiplier() const { return damage_multiplier_; }
+
  private:
   CCharacter* character_ = nullptr;
+  int damage_multiplier_ = 1;
 };
 
 // Bridges the game-free TextMeasurer interface the menu is built against to
@@ -63,8 +70,26 @@ constexpr unsigned int kBackKey = 0x08;
 
 }  // namespace
 
+float ApplyDamageMultiplier(float damage, bool attacker_is_player,
+                            int multiplier) {
+  return attacker_is_player ? damage * multiplier : damage;
+}
+
 void (CCharacter::* CCharacter::GiveGold)(int amount) =
     AddrToFuncPtr<decltype(GiveGold)>(0x59DEB3);
+
+void (CCharacter::* CCharacter::TakeDamage)(CLevel* level, CCharacter* attacker,
+                                            float damage, char showEffects) =
+    AddrToFuncPtr<decltype(TakeDamage)>(0x5AEB67);
+
+void CCharacter::TakeDamageDetour(CLevel* level, CCharacter* attacker,
+                                  float damage, char showEffects) {
+  // playerIndex is -1 for anything the player doesn't control.
+  bool attacker_is_player = attacker != nullptr && attacker->playerIndex != -1;
+  damage = ApplyDamageMultiplier(damage, attacker_is_player,
+                                 CheatMenuActions().damage_multiplier());
+  (this->*TakeDamage)(level, attacker, damage, showEffects);
+}
 
 bool (CGameUI::* CGameUI::Paused)() = AddrToFuncPtr<decltype(Paused)>(0x43759B);
 bool (CGameUI::* CGameUI::Render)(IDirect3DDevice8* id3dDevice,
@@ -118,6 +143,10 @@ bool InstallClientDetours() {
   }
   if (!AttachDetour(reinterpret_cast<PVOID*>(&CGameUI::Render),
                     FuncPtrToPVoid(&CGameUI::RenderDetour))) {
+    return false;
+  }
+  if (!AttachDetour(reinterpret_cast<PVOID*>(&CCharacter::TakeDamage),
+                    FuncPtrToPVoid(&CCharacter::TakeDamageDetour))) {
     return false;
   }
   return true;

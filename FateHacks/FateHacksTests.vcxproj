@@ -93,8 +93,12 @@
          GameOperatorNew to link, even though no test ever calls Render. -->
     <ClCompile Include="render.cpp" />
     <ClCompile Include="stl.cpp" />
+    <ClCompile Include="input.cpp" />
     <ClCompile Include="menu.cpp" />
     <ClCompile Include="menu_test.cpp" />
+    <ClCompile Include="detour.cpp" />
+    <ClCompile Include="client.cpp" />
+    <ClCompile Include="client_test.cpp" />
     <ClCompile Include="test_main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -102,6 +106,9 @@
     <ClInclude Include="render.hpp" />
     <ClInclude Include="stl.hpp" />
     <ClInclude Include="menu.hpp" />
+    <ClInclude Include="input.hpp" />
+    <ClInclude Include="detour.hpp" />
+    <ClInclude Include="client.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <!-- Run the test binary after the build (so after vcpkg copies the runtime

@@ -9,11 +9,30 @@
 
 namespace fate {
 
+// Multiplies `damage` by `multiplier` when `attacker_is_player` is true, so
+// the damage multiplier cheat only affects damage the player (or a
+// player-controlled pet) deals; damage taken passes through unchanged. Kept
+// as a pure function, separate from the detour that calls it, so it can be
+// unit tested without the game running.
+float ApplyDamageMultiplier(float damage, bool attacker_is_player,
+                            int multiplier);
+
 #pragma pack(push, 1)
 
 struct CCharacter {
+  char _pad00[0x320];  // 0x000
+  int playerIndex;     // 0x320: -1 for anything not player-controlled.
+
   static void (CCharacter::*GiveGold)(int amount);
+
+  static void (CCharacter::*TakeDamage)(struct CLevel* level,
+                                        CCharacter* attacker, float damage,
+                                        char showEffects);
+  void TakeDamageDetour(struct CLevel* level, CCharacter* attacker,
+                        float damage, char showEffects);
 };
+
+static_assert(offsetof(CCharacter, playerIndex) == 0x320);
 
 struct CGameUI {
   CKeyHandler keyboard;                                               // 0x000

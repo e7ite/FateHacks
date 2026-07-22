@@ -12,15 +12,17 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
-      # The test target links Google Test/Mock statically from vcpkg; restore
-      # them and integrate so MSBuild finds them. Only the test project is built
-      # here -- never the DLL -- so nothing is injected into the game. The
-      # overlay triplet (triplets/) builds gtest with the STL's vectorized
-      # algorithm helpers disabled; see that file for why.
-      - name: Install Google Test via vcpkg
+      # The test target links Google Test/Mock statically from vcpkg, and now
+      # also compiles client.cpp (so its pure logic is testable without an
+      # inline-in-header workaround), which needs Detours; restore both and
+      # integrate so MSBuild finds them. Only the test project is built here
+      # -- never the DLL -- so nothing is injected into the game. The overlay
+      # triplet (triplets/) builds gtest with the STL's vectorized algorithm
+      # helpers disabled; see that file for why.
+      - name: Install Google Test and Detours via vcpkg
         shell: pwsh
         run: |
-          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" install gtest:x86-windows-static-md --overlay-triplets="$env:GITHUB_WORKSPACE\triplets"
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" install gtest:x86-windows-static-md detours:x86-windows-static-md --overlay-triplets="$env:GITHUB_WORKSPACE\triplets"
           & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" integrate install
 
       # Building the test project runs the suite via its RunTests target, so a
