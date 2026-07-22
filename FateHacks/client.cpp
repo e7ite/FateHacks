@@ -23,13 +23,34 @@ class GameCharacterActions : public CharacterActions {
   CCharacter* character_ = nullptr;
 };
 
+// Bridges the game-free TextMeasurer interface the menu is built against to
+// the game's loaded font. The font pointer is refreshed each frame before
+// checking clicks, since it only exists while a game is loaded.
+class GameTextMeasurer : public TextMeasurer {
+ public:
+  void set_font(CFontMetric* font) { font_ = font; }
+
+  int MeasureWidth(const char* text, float scale) const override {
+    return font_ != nullptr ? static_cast<int>(font_->TextWidth(text, scale))
+                            : 0;
+  }
+
+ private:
+  CFontMetric* font_ = nullptr;
+};
+
 GameCharacterActions& CheatMenuActions() {
   static GameCharacterActions actions;
   return actions;
 }
 
+GameTextMeasurer& CheatMenuMeasurer() {
+  static GameTextMeasurer measurer;
+  return measurer;
+}
+
 Menu& CheatMenu() {
-  static Menu menu = BuildCheatMenu(&CheatMenuActions());
+  static Menu menu = BuildCheatMenu(&CheatMenuActions(), &CheatMenuMeasurer());
   return menu;
 }
 
@@ -70,6 +91,7 @@ void CGameClient::UpdateDetour(IDirect3DDevice8* id3dDevice, HWND handle,
                                float unk) {
   CGameUI* ui = this->ui;
   CheatMenuActions().set_character(ui->character);
+  CheatMenuMeasurer().set_font(ui->font);
 
   // Drive the menu from the Update phase, where the "just pressed" input edges
   // are still fresh. (The menu is drawn in CGameUI::RenderDetour.) Insert opens
