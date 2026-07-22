@@ -43,7 +43,20 @@ void Menu::Toggle() {
       {};  // always reopen at the root level (std::stack has no clear()).
 }
 
+void Menu::Back() {
+  if (!open_) {
+    return;
+  }
+  if (nav_stack_.empty()) {
+    open_ = false;
+  } else {
+    nav_stack_.pop();
+  }
+}
+
 const char* Menu::title() const { return CurrentParent().label.text(); }
+
+std::size_t Menu::item_count() const { return CurrentParent().submenu.size(); }
 
 MenuItem& Menu::CurrentParent() {
   return nav_stack_.empty() ? root_ : *nav_stack_.top();

@@ -51,6 +51,22 @@ TEST(MenuTest, TitleAtRootIsTheMenuTitle) {
   EXPECT_STREQ(menu.title(), "Title");
 }
 
+TEST(MenuTest, BackAtRootClosesMenu) {
+  Menu menu = MakeMenu();
+  menu.Toggle();
+
+  menu.Back();
+
+  EXPECT_FALSE(menu.is_open());
+}
+
+TEST(MenuTest, RootShowsTwoItems) {
+  Menu menu = MakeMenu();
+  menu.Toggle();
+
+  EXPECT_EQ(menu.item_count(), 2u);
+}
+
 TEST(CheatMenuTest, TitleAtRootIsTheMenuTitle) {
   MockCharacterActions actions;
   Menu menu = BuildCheatMenu(&actions);

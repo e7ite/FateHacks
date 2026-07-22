@@ -73,12 +73,20 @@ class Menu {
   // menu.
   void Toggle();
 
+  // Steps out of the current submenu, or closes the menu if already at the
+  // main menu.
+  void Back();
+
   bool is_open() const { return open_; }
 
   // The heading for the level currently shown: the menu's title at the main
   // menu, or (once submenu descent exists) the label of the item last
   // descended into.
   const char* title() const;
+
+  // Number of items on the level currently shown (the main menu or a
+  // submenu).
+  std::size_t item_count() const;
 
  private:
   // The item whose label is the heading and whose submenu is the item list
