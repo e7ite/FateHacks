@@ -16,9 +16,13 @@ struct CCharacter {
 };
 
 struct CGameUI {
-  char _pad00[0x504];                                                 // 0x000
+  CKeyHandler keyboard;                                               // 0x000
+  char _pad00[0x504 - sizeof(CKeyHandler)];                           // 0x004
   CMouseHandler mouse;                                                // 0x504
-  char _pad01[0x1C];                                                  // 0x508
+  char _pad01a[0x518 - (0x504 + sizeof(CMouseHandler))];              // 0x508
+  int mouseX;                                                         // 0x518
+  int mouseY;                                                         // 0x51C
+  char _pad01b[0x524 - (0x51C + sizeof(int))];                        // 0x520
   struct CSettings* settings;                                         // 0x524
   CRefManager* refManager;                                            // 0x528
   struct CGameStateManager* gameStateManager;                         // 0x52C
@@ -38,7 +42,10 @@ struct CGameUI {
                     void* unk, void* unk2);
 };
 
+static_assert(offsetof(CGameUI, keyboard) == 0x000);
 static_assert(offsetof(CGameUI, mouse) == 0x504);
+static_assert(offsetof(CGameUI, mouseX) == 0x518);
+static_assert(offsetof(CGameUI, mouseY) == 0x51C);
 static_assert(offsetof(CGameUI, settings) == 0x524);
 static_assert(offsetof(CGameUI, refManager) == 0x528);
 static_assert(offsetof(CGameUI, gameStateManager) == 0x52C);

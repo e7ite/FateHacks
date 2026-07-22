@@ -137,6 +137,15 @@ TEST(CheatMenuTest, TitleInsideASubmenuIsTheItemDescendedInto) {
   EXPECT_STREQ(menu.title(), "More");
 }
 
+TEST(CheatMenuTest, LabelAtNamesTheCurrentLevelItem) {
+  MockCharacterActions actions;
+  Menu menu = BuildCheatMenu(&actions);
+  menu.Toggle();
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
+
+  EXPECT_STREQ(menu.label_at(0), "Add Gold x10");
+}
+
 TEST(CheatMenuTest, ActivatingAddGoldGivesHundredGold) {
   MockCharacterActions actions;
   Menu menu = BuildCheatMenu(&actions);

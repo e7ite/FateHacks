@@ -1,8 +1,46 @@
 #include "client.hpp"
 
 #include "detour.hpp"
+#include "menu.hpp"
 
 namespace fate {
+namespace {
+
+// Bridges the game-free CharacterActions interface the menu is built against
+// to the real player character. The character pointer is refreshed each frame
+// before the menu acts, since it only exists while a game is loaded.
+class GameCharacterActions : public CharacterActions {
+ public:
+  void set_character(CCharacter* character) { character_ = character; }
+
+  void GiveGold(int amount) override {
+    if (character_ != nullptr) {
+      (character_->*CCharacter::GiveGold)(amount);
+    }
+  }
+
+ private:
+  CCharacter* character_ = nullptr;
+};
+
+GameCharacterActions& CheatMenuActions() {
+  static GameCharacterActions actions;
+  return actions;
+}
+
+Menu& CheatMenu() {
+  static Menu menu = BuildCheatMenu(&CheatMenuActions());
+  return menu;
+}
+
+// Virtual-key (VK_INSERT) that opens and closes the cheat menu.
+constexpr unsigned int kToggleKey = 0x2D;
+
+// Virtual-key (VK_BACK) that steps out of a submenu, or closes the menu if
+// already at the root.
+constexpr unsigned int kBackKey = 0x08;
+
+}  // namespace
 
 void (CCharacter::* CCharacter::GiveGold)(int amount) =
     AddrToFuncPtr<decltype(GiveGold)>(0x59DEB3);
@@ -14,17 +52,11 @@ bool (CGameUI::* CGameUI::Render)(IDirect3DDevice8* id3dDevice,
 
 bool CGameUI::RenderDetour(IDirect3DDevice8* id3dDevice, CGameClient* client,
                            void* unk, void* unk2) {
-  // Let the game draw its UI first, then draw ours on top.
+  // Let the game draw its UI first, then draw the cheat menu on top.
   bool status = (this->*Render)(id3dDevice, client, unk, unk2);
 
-  static std::unique_ptr<CText, void (*)(CText*)> overlayText(nullptr, nullptr);
-  if (overlayText == nullptr && fontMaterial != nullptr && font != nullptr) {
-    STLString str("Hellfateo world!");
-    overlayText = CText::Create(id3dDevice, fontMaterial, font, &str, 100, 10,
-                                0.8f, 0, 2, 1024, 768);
-  }
-  if (overlayText) {
-    (overlayText.get()->*CText::Render)(id3dDevice);
+  if (fontMaterial != nullptr && font != nullptr) {
+    CheatMenu().Render(id3dDevice, fontMaterial, font, mouseX, mouseY);
   }
 
   return status;
@@ -37,13 +69,21 @@ void (CGameClient::* CGameClient::Update)(IDirect3DDevice8* id3dDevice,
 void CGameClient::UpdateDetour(IDirect3DDevice8* id3dDevice, HWND handle,
                                float unk) {
   CGameUI* ui = this->ui;
+  CheatMenuActions().set_character(ui->character);
 
-  // Give gold on left-click. This runs in the Update phase, where the "just
-  // pressed" mouse state is still fresh. (The overlay text is drawn in
-  // CGameUI::RenderDetour, which runs in the render phase.)
-  if (!(ui->*CGameUI::Paused)() && (ui->mouse.*CMouseHandler::ButtonPressed)(
-                                       CMouseHandler::EButton::LEFT_CLICK)) {
-    (ui->character->*CCharacter::GiveGold)(100);
+  // Drive the menu from the Update phase, where the "just pressed" input edges
+  // are still fresh. (The menu is drawn in CGameUI::RenderDetour.) Insert opens
+  // and closes it, Backspace steps back, and a left-click activates whatever
+  // row the mouse is over.
+  if ((ui->keyboard.*CKeyHandler::KeyPressed)(kToggleKey)) {
+    CheatMenu().Toggle();
+  }
+  if ((ui->keyboard.*CKeyHandler::KeyPressed)(kBackKey)) {
+    CheatMenu().Back();
+  }
+  if (CheatMenu().is_open() && (ui->mouse.*CMouseHandler::ButtonPressed)(
+                                   CMouseHandler::EButton::LEFT_CLICK)) {
+    CheatMenu().Activate(ui->mouseX, ui->mouseY);
   }
 
   (this->*Update)(id3dDevice, handle, unk);

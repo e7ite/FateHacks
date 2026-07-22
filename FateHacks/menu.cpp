@@ -66,6 +66,10 @@ const char* Menu::title() const { return CurrentParent().label.text(); }
 
 std::size_t Menu::item_count() const { return CurrentParent().submenu.size(); }
 
+const char* Menu::label_at(std::size_t index) const {
+  return CurrentParent().submenu[index].label.text();
+}
+
 bool Menu::IsItemHovered(std::size_t index, int mouse_x, int mouse_y) const {
   constexpr int kMinHalfWidth = 80;
   constexpr int kCharWidth = 12;
@@ -102,6 +106,32 @@ void Menu::Activate(int mouse_x, int mouse_y) {
       items[i].action();
     }
     return;
+  }
+}
+
+void Menu::Render(IDirect3DDevice8* device, CMaterial* material,
+                  CFontMetric* font, int mouse_x, int mouse_y) {
+  if (!open_) {
+    return;
+  }
+  // The scale an unhovered row is drawn at; a hovered row draws larger, at
+  // kHoveredScale, so it reads as selected.
+  constexpr float kUnhoveredScale = 0.85f;
+  constexpr float kHoveredScale = 1.0f;
+  // The heading sits above the first item, drawn larger so it reads as a
+  // title.
+  constexpr float kTitleScale = 1.4f;
+  constexpr int kTitleGap = 66;
+
+  MenuItem& parent = CurrentParent();
+  std::vector<MenuItem>& items = parent.submenu;
+  parent.label.Render(device, material, font, kCenterX,
+                      RowY(0, items.size()) - kTitleGap, kTitleScale);
+  for (std::size_t i = 0; i < items.size(); ++i) {
+    float scale =
+        IsItemHovered(i, mouse_x, mouse_y) ? kHoveredScale : kUnhoveredScale;
+    items[i].label.Render(device, material, font, kCenterX,
+                          RowY(i, items.size()), scale);
   }
 }
 

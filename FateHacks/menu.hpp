@@ -62,7 +62,9 @@ std::vector<MenuItem> Items(Ts&&... items) {
   return list;
 }
 
-// A navigable, centered list of menu items.
+// A navigable, centered list of menu items. Left-click activation runs a leaf
+// item's action or descends into a submenu; Back steps up one level, or
+// closes the menu if already at the main menu.
 class Menu {
  public:
   // `title` is the heading shown at the main menu (before descending into a
@@ -96,14 +98,24 @@ class Menu {
   // submenu).
   std::size_t item_count() const;
 
+  // The label of the item at `index` on the level currently shown; pair with
+  // item_count() to draw the visible rows.
+  const char* label_at(std::size_t index) const;
+
   // True when (mouse_x, mouse_y) is over item `index` on the level currently
   // shown. Query-only -- unlike Activate, it never runs the item's action or
-  // descends into its submenu.
+  // descends into its submenu; rendering uses it to highlight the hovered row.
   bool IsItemHovered(std::size_t index, int mouse_x, int mouse_y) const;
 
   // Activates the item under the mouse: runs a leaf's action or descends into a
   // submenu. Does nothing if the menu is closed or nothing is hovered.
   void Activate(int mouse_x, int mouse_y);
+
+  // Draws the title and every visible row, brightened when hovered. The only
+  // member that touches the game: everything else above is plain data and
+  // logic, testable without a device.
+  void Render(fate::IDirect3DDevice8* device, fate::CMaterial* material,
+              fate::CFontMetric* font, int mouse_x, int mouse_y);
 
  private:
   // The item whose label is the heading and whose submenu is the item list
