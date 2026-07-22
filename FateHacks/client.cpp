@@ -19,10 +19,9 @@ class GameCharacterActions : public CharacterActions {
     }
   }
 
-  // Plain method, not `override`: nothing calls this through the
-  // `CharacterActions*` interface yet, only `damage_multiplier()` below (read
-  // directly by the detour).
-  void SetDamageMultiplier(int multiplier) { damage_multiplier_ = multiplier; }
+  void SetDamageMultiplier(int multiplier) override {
+    damage_multiplier_ = multiplier;
+  }
   int damage_multiplier() const { return damage_multiplier_; }
 
  private:

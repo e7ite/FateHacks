@@ -49,6 +49,7 @@ Menu MakeMenu(MockFunction<void()>* func,
 class MockCharacterActions final : public CharacterActions {
  public:
   MOCK_METHOD(void, GiveGold, (int amount), (override));
+  MOCK_METHOD(void, SetDamageMultiplier, (int multiplier), (override));
 };
 
 TEST(MenuTest, StartsClosed) {
@@ -198,6 +199,17 @@ TEST(CheatMenuTest, ActivatingAddGoldXTenGivesThousandGold) {
 
   EXPECT_CALL(actions, GiveGold(100)).Times(10);
   menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/0, menu.item_count()));
+}
+
+TEST(CheatMenuTest, ActivatingDamageMultiplierSetsIt) {
+  MockCharacterActions actions;
+  Menu menu = BuildCheatMenu(&actions, &DefaultMeasurer());
+  menu.Toggle();
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
+
+  EXPECT_CALL(actions, SetDamageMultiplier(10)).Times(1);
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/2, menu.item_count()));
 }
 
 TEST(CheatMenuTest, BackFromSubmenuReturnsToRoot) {
