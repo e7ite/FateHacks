@@ -9,7 +9,7 @@
 namespace fate {
 
 struct CKeyHandler {
-  char _pad00[0x4];  // 0x00
+  char _pad00[0x4];
 
   static bool (CKeyHandler::*KeyPressed)(unsigned int key);
   static bool (CKeyHandler::*KeyHeld)(unsigned int key);
@@ -21,7 +21,7 @@ struct CMouseHandler {
     RIGHT_CLICK,
   };
 
-  char buttonData[0x4];  // 0x00
+  char buttonData[0x4];
 
   static bool (CMouseHandler::*ButtonPressed)(EButton key);
   static bool (CMouseHandler::*ButtonHeld)(EButton key);

@@ -10,22 +10,12 @@
 
 namespace fate {
 
-// The game's Direct3D device wrapper. Opaque to us -- we only ever pass
-// pointers to it through to game functions.
 struct IDirect3DDevice8;
 
-// A loaded bitmap font's per-character metrics, laid out the way
-// CText::Update reads them: derived from decompiling that function (both the
-// Windows and Mac builds) rather than documented anywhere.
 struct CFontMetric {
-  // Per-glyph advance width in pixels, indexed by (unsigned char) character
-  // code.
-  int charWidths[256];  // 0x000
-  // Added once per character when summing a string's total width.
-  float spacing;  // 0x400
-  // Added to every glyph's raw width before it contributes to a string's
-  // total width.
-  int widthBias;  // 0x404
+  int charWidths[256];
+  float spacing;
+  int widthBias;
 
   // The on-screen width of `text` at `scale`, matching CText::Update's layout
   // math -- so checking a click against a rendered label can use the same
@@ -46,7 +36,7 @@ static_assert(offsetof(CFontMetric, spacing) == 0x400);
 static_assert(offsetof(CFontMetric, widthBias) == 0x404);
 
 struct CText {
-  char _pad00[0x78];  // 0x00
+  char _pad00[0x78];
 
   static void (CText::*Render)(IDirect3DDevice8* id3dDevice);
   // Rebuilds the mesh from a new string. Use this to edit the text after
@@ -101,7 +91,7 @@ struct CRefManager {
 static_assert(offsetof(CRefManager, materialRefs) == 0x50);
 
 struct CConfirmMenu {
-  char _pad00[0x594];  // 0x00
+  char _pad00[0x594];
 
   static void (CConfirmMenu::*Render)(IDirect3DDevice8* id3dDevice);
 
