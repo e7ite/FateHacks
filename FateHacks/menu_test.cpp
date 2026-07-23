@@ -51,8 +51,8 @@ class MockCharacterActions final : public CharacterActions {
   MOCK_METHOD(void, GiveGold, (int amount), (override));
   MOCK_METHOD(void, SetDamageMultiplier, (int multiplier), (override));
 
-  // Real behavior, not a recorded call: mutates its own value so tests can
-  // check the actual delta was applied, not just that this was called.
+  // Mutates its own value instead of being a recorded gmock call, so tests
+  // can check the actual delta was applied, not just that this was called.
   void AdjustWeaponDamageDealtBonus(int delta) override {
     weapon_damage_dealt_bonus_ += delta;
   }
@@ -220,6 +220,32 @@ TEST(CheatMenuTest, ActivatingDamageMultiplierSetsIt) {
 
   EXPECT_CALL(actions, SetDamageMultiplier(10)).Times(1);
   menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/2, menu.item_count()));
+}
+
+TEST(CheatMenuTest, ActivatingWeaponDamageDealtBonusPlusFiveAddsFive) {
+  MockCharacterActions actions;
+  Menu menu = BuildCheatMenu(&actions, &DefaultMeasurer());
+  menu.Toggle();
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/2, menu.item_count()));
+
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/0, menu.item_count()));
+
+  EXPECT_EQ(actions.weapon_damage_dealt_bonus(), 5);
+}
+
+TEST(CheatMenuTest,
+     ActivatingWeaponDamageDealtBonusMinusFiveTwiceSubtractsTen) {
+  MockCharacterActions actions;
+  Menu menu = BuildCheatMenu(&actions, &DefaultMeasurer());
+  menu.Toggle();
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/2, menu.item_count()));
+
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
+  menu.Activate(Menu::kCenterX, Menu::RowY(/*index=*/1, menu.item_count()));
+
+  EXPECT_EQ(actions.weapon_damage_dealt_bonus(), -10);
 }
 
 TEST(CheatMenuTest, BackFromSubmenuReturnsToRoot) {

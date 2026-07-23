@@ -150,31 +150,43 @@ const MenuItem& Menu::CurrentParent() const {
 Menu BuildCheatMenu(CharacterActions* actions, TextMeasurer* measurer) {
   return Menu(
       "FateHacks",
-      Items(
-          Action("Add Gold", [actions] { actions->GiveGold(100); }),
-          Submenu("More",
-                  Items(Action("Add Gold x10",
-                               [actions] {
-                                 for (int i = 0; i < 10; ++i) {
-                                   actions->GiveGold(100);
-                                 }
-                               }),
-                        Submenu("Damage Multiplier",
-                                Items(Action("x1 (Off)",
-                                             [actions] {
-                                               actions->SetDamageMultiplier(1);
-                                             }),
-                                      Action("x5",
-                                             [actions] {
-                                               actions->SetDamageMultiplier(5);
-                                             }),
-                                      Action("x10",
-                                             [actions] {
-                                               actions->SetDamageMultiplier(10);
-                                             }),
-                                      Action("x50",
-                                             [actions] {
-                                               actions->SetDamageMultiplier(50);
-                                             })))))),
+      Items(Action("Add Gold", [actions] { actions->GiveGold(100); }),
+            Submenu(
+                "More",
+                Items(Action("Add Gold x10",
+                             [actions] {
+                               for (int i = 0; i < 10; ++i) {
+                                 actions->GiveGold(100);
+                               }
+                             }),
+                      Submenu("Damage Multiplier",
+                              Items(Action("x1 (Off)",
+                                           [actions] {
+                                             actions->SetDamageMultiplier(1);
+                                           }),
+                                    Action("x5",
+                                           [actions] {
+                                             actions->SetDamageMultiplier(5);
+                                           }),
+                                    Action("x10",
+                                           [actions] {
+                                             actions->SetDamageMultiplier(10);
+                                           }),
+                                    Action("x50",
+                                           [actions] {
+                                             actions->SetDamageMultiplier(50);
+                                           }))),
+                      Submenu(
+                          "Weapon Damage Dealt Bonus",
+                          Items(Action("+5",
+                                       [actions] {
+                                         actions->AdjustWeaponDamageDealtBonus(
+                                             5);
+                                       }),
+                                Action("-5",
+                                       [actions] {
+                                         actions->AdjustWeaponDamageDealtBonus(
+                                             -5);
+                                       })))))),
       measurer);
 }
