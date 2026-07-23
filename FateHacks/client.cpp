@@ -24,6 +24,20 @@ class GameCharacterActions : public CharacterActions {
   }
   int damage_multiplier() const { return damage_multiplier_; }
 
+  void AdjustWeaponDamageDealtBonus(int delta) override {
+    if (character_ == nullptr || character_->weapon == nullptr) {
+      return;
+    }
+    if (!AddDamageDealtBonusEffect(character_->weapon,
+                                   static_cast<float>(delta))) {
+      return;
+    }
+    // The item's CEffect is updated, so recompute the totals once here so
+    // combat feels it immediately rather than at the game's next recompute.
+    (character_->inventory->*CInventory::CalculateEffectValues)();
+    (character_->*CCharacter::CalculateEffectValues)();
+  }
+
  private:
   CCharacter* character_ = nullptr;
   int damage_multiplier_ = 1;
@@ -74,8 +88,61 @@ float ApplyDamageMultiplier(float damage, bool attacker_is_player,
   return attacker_is_player ? damage * multiplier : damage;
 }
 
+CEffect* FindEffect(CEffect* const* begin, CEffect* const* end,
+                    EEffectType type) {
+  for (CEffect* const* it = begin; it != end; ++it) {
+    if (*it != nullptr && (*it)->type == type) {
+      return *it;
+    }
+  }
+  return nullptr;
+}
+
+bool AddDamageDealtBonusEffect(CItem* item, float delta) {
+  CEffectList& bucket = item->effects[0];
+  if (CEffect* existing =
+          FindEffect(bucket.begin, bucket.end, EEffectType::DamageDealtBonus)) {
+    existing->value += delta;
+    return true;
+  }
+  // Find any existing effect (in either bucket) to copy-construct a valid new
+  // CEffect from; there's no safe way to build one from scratch.
+  CEffect* source = nullptr;
+  for (int i = 0; i < 2 && source == nullptr; ++i) {
+    for (CEffect* const* it = item->effects[i].begin;
+         it != item->effects[i].end; ++it) {
+      if (*it != nullptr) {
+        source = *it;
+        break;
+      }
+    }
+  }
+  if (source == nullptr) {
+    return false;
+  }
+  CEffect* effect = static_cast<CEffect*>(GameOperatorNew(sizeof(CEffect)));
+  (effect->*CEffect::CopyConstruct)(source);
+  effect->type = EEffectType::DamageDealtBonus;
+  effect->activation = 0;  // so AddNewEffect files it in the bucket combat sums
+  effect->value = delta;
+  (item->*CItem::AddNewEffect)(effect);
+  return true;
+}
+
 void (CCharacter::* CCharacter::GiveGold)(int amount) =
     AddrToFuncPtr<decltype(GiveGold)>(0x59DEB3);
+
+void (CCharacter::* CCharacter::CalculateEffectValues)() =
+    AddrToFuncPtr<decltype(CalculateEffectValues)>(0x5AC22D);
+
+void (CInventory::* CInventory::CalculateEffectValues)() =
+    AddrToFuncPtr<decltype(CalculateEffectValues)>(0x5C6DD1);
+
+void (CItem::* CItem::AddNewEffect)(CEffect* effect) =
+    AddrToFuncPtr<decltype(AddNewEffect)>(0x4FD15C);
+
+void (CEffect::* CEffect::CopyConstruct)(const CEffect* source) =
+    AddrToFuncPtr<decltype(CopyConstruct)>(0x4920EB);
 
 void (CCharacter::* CCharacter::TakeDamage)(CLevel* level, CCharacter* attacker,
                                             float damage, char showEffects) =

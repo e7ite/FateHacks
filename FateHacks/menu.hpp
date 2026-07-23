@@ -16,6 +16,7 @@ class CharacterActions {
   virtual ~CharacterActions() = default;
   virtual void GiveGold(int amount) = 0;
   virtual void SetDamageMultiplier(int multiplier) = 0;
+  virtual void AdjustWeaponDamageDealtBonus(int delta) = 0;
 };
 
 // Measures the on-screen width of menu label text at the given scale, in

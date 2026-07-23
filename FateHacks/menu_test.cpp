@@ -50,6 +50,16 @@ class MockCharacterActions final : public CharacterActions {
  public:
   MOCK_METHOD(void, GiveGold, (int amount), (override));
   MOCK_METHOD(void, SetDamageMultiplier, (int multiplier), (override));
+
+  // Real behavior, not a recorded call: mutates its own value so tests can
+  // check the actual delta was applied, not just that this was called.
+  void AdjustWeaponDamageDealtBonus(int delta) override {
+    weapon_damage_dealt_bonus_ += delta;
+  }
+  int weapon_damage_dealt_bonus() const { return weapon_damage_dealt_bonus_; }
+
+ private:
+  int weapon_damage_dealt_bonus_ = 0;
 };
 
 TEST(MenuTest, StartsClosed) {
