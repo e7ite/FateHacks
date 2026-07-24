@@ -79,21 +79,9 @@ TEST(AddDamageDealtBonusEffectTest, AddsToAnExistingDamageDealtBonusDirectly) {
   item.effects[0].begin = effects;
   item.effects[0].end = effects + 1;
 
-  EXPECT_TRUE(AddDamageDealtBonusEffect(&item, /*delta=*/2.0f));
+  AddDamageDealtBonusEffect(&item, /*delta=*/2.0f);
 
   EXPECT_FLOAT_EQ(damage_dealt_bonus.value, 7.0f);
-}
-
-TEST(AddDamageDealtBonusEffectTest, ReturnsFalseWithNoEffectToCopyFrom) {
-  // With no existing effect to copy-construct a new one from, it bails out
-  // before touching the game's allocator or constructor.
-  CItem item{};
-  item.effects[0].begin = nullptr;
-  item.effects[0].end = nullptr;
-  item.effects[1].begin = nullptr;
-  item.effects[1].end = nullptr;
-
-  EXPECT_FALSE(AddDamageDealtBonusEffect(&item, /*delta=*/2.0f));
 }
 
 }  // namespace

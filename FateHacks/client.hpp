@@ -21,6 +21,9 @@ struct CEffect {
   float value;
   char _pad02[0xB4 - (0x14 + sizeof(value))];
 
+  static void (CEffect::*Constructor)(EEffectType type, char unk,
+                                      int activation, int unk2, float min,
+                                      float max);
   static void (CEffect::*CopyConstruct)(const CEffect* source);
 };
 
@@ -176,15 +179,15 @@ CEffect* FindEffect(CEffect* const* begin, CEffect* const* end,
 //
 // If a Damage Dealt Bonus effect already exists, just adds to its value (a
 // plain field write, no allocation). Otherwise it copy-constructs a new
-// CEffect from any existing effect on the item (the only safe way to build
-// one, since a CEffect's internal members can't be constructed by hand),
-// repoints the copy to be a bucket-0 Damage Dealt Bonus effect, and hands it
-// to the game's own AddNewEffect. Returns false only if the item has no
-// effect at all to copy from.
+// CEffect from any existing effect on the item. If it can't find any existing
+// effect, it adds a new one from scratch (allocating and calling the game's own
+// constructor). If this effect never existed, it repoints the effect to be a
+// bucket-0 Damage Dealt Bonus effect, and hands it to the game's own
+// AddNewEffect.
 //
-// Calls game functions directly (the copy constructor, AddNewEffect), so only
-// its no-allocation path is exercised by the unit tests.
-bool AddDamageDealtBonusEffect(CItem* item, float delta);
+// Calls game functions directly (the regular and copy constructor,
+// AddNewEffect), so only its no-allocation path is exercised by the unit tests.
+void AddDamageDealtBonusEffect(CItem* item, float delta);
 
 // Hooks CGameClient::Update and CGameUI::Render so UpdateDetour/RenderDetour
 // run every frame. Called once from DllMain; returns false if either hook
